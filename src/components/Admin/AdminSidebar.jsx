@@ -1,6 +1,6 @@
-// components/Admin/AdminSidebar.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import { 
   FaUserPlus, 
   FaUsersCog, 
@@ -47,12 +47,12 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
       id: 'organigramme',
       icon: <FaProjectDiagram />,
       label: 'Organigramme',
-      subItems: [
-        { label: 'Direction', path: '/organigramme/direction' },
-        { label: 'Division', path: '/organigramme/division' },
-        { label: 'Département', path: '/organigramme/departement' }
-      ],
-      action: toggleOrganigramme
+
+      action: () => {
+        setActiveMenu('L\'organigramme');
+        navigate('/admin/Organigramme');
+      }
+
     },
     {
       id: 'utilisateurs',

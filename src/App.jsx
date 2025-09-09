@@ -4,11 +4,15 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useState, useEffect } from 'react';
 
-import AdminHome from './pages/Admin/Home.jsx';
-import Login from './pages/auth/login';
-import Creation from './pages/Admin/CreateUserForm.jsx';
-import UserManagement from './pages/Admin/UsersList.jsx';
-import EditUserForm from './pages/Admin/EditUserForm.jsx';
+//admin
+import Login from "./pages/Auth/login";
+import AdminHome from "./pages/Admin/Home.jsx";
+import Creation from "./pages/Admin/UserCreationForm.jsx";
+import UserManagement from "./pages/Admin/UserList.jsx";
+import EditUserForm from "./pages/Admin/EditUserForm.jsx";
+import OrganigrammePage from "./pages/Admin/Organigramme.jsx";
+
+// rspo stock
 import FamillyManagement from './pages/RespoStock/GestionFamilles.jsx';
 import SubFamillyManagement from './pages/RespoStock/GestionSFamilles.jsx';
 import ProductsManagement from './pages/RespoStock/GestionProduits.jsx';
@@ -23,10 +27,17 @@ import ProductEdit from './pages/RespoStock/ProdutEdit.jsx';
 import EntryManagement from './pages/RespoStock/GestionEntrees.jsx';
 import AddEntry from './pages/RespoStock/AddEntry.jsx';
 import EntryEdit from './pages/RespoStock/EditEntry.jsx';
-import ExitManagement from './pages/RespoStock/GestionSortie.jsx';
-import AddExit from './pages/RespoStock/AddSortie.jsx';
-import EditExit from './pages/RespoStock/EditSortie.jsx';
+import StockManagement from "./pages/respoStock/GestionStock.jsx";
+import ExitManagement from './pages/respoStock/GestionSorties.jsx';
+import AddExit from './pages/respoStock/AddExit.jsx';
+import EditExit from './pages/respoStock/EditSortie.jsx';
 import Dashboard from './pages/RespoStock/Dashboard.jsx';
+
+// employe
+import EmployeHome from "./pages/Employe/Home.jsx";
+import FaireDemande from "./pages/Employe/FaireDemande.jsx";
+import MesDemandes from "./pages/Employe/MesDemandes.jsx";
+import ConsulterStock from "./pages/Employe/ConsulterStock.jsx";
 
 const AppContent = () => {
   const [user, setUser] = useState(null);
@@ -69,9 +80,6 @@ const AppContent = () => {
       />
 
 
-
-
-
       {/* Routes Admin */}
       <Route
         path="/admin/Home"
@@ -89,8 +97,11 @@ const AppContent = () => {
         path="/admin/edit-user/:userId"
         element={user?.role === 'admin' ? <EditUserForm /> : <Navigate to="/login" />}
       />
-
-
+      <Route
+        path="/admin/Organigramme"
+        element={user?.role === 'admin' ? <OrganigrammePage /> : <Navigate to="/login" />}
+      />
+     
 
 
       {/* Routes Responsable Stock */}
@@ -166,6 +177,32 @@ const AppContent = () => {
         path="/stock-manager/exits/edit/:id"
         element={user?.role === 'responsablestock' ? <EditExit /> : <Navigate to="/login" />}
       />
+      <Route
+        path="/stock-manager/stock/status"
+        element={user?.role === 'responsablestock' ? <StockManagement /> : <Navigate to="/login" />}
+      />
+
+
+
+
+      {/* Routes Employé */}
+      <Route
+        path="/employe/Home"
+        element={user?.role === 'employe' ? <EmployeHome /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/employe/faire-demande"
+        element={user?.role === 'employe' ? <FaireDemande /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/employe/mes-demandes"
+        element={user?.role === 'employe' ? <MesDemandes /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/employe/consulter-stock"
+        element={user?.role === 'employe' ? <ConsulterStock /> : <Navigate to="/login" />}
+      />
+     
 
       {/* Route par défaut */}
       <Route path="*" element={<Navigate to={user ? getDefaultPath(user.role) : '/login'} />} />
@@ -192,5 +229,4 @@ const App = () => {
     </Router>
   );
 };
-
 export default App;
