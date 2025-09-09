@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaPlus, FaEdit, FaBox, FaLayerGroup, FaTags, FaPercent, FaCalendarAlt } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import RespoSidebar from '../../components/respoStock/RespoSidebar';
 import api from '../../api/axios'; // Ajuste le chemin
 import { toast } from 'react-toastify';
 

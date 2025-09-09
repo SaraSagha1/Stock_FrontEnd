@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaBuilding, FaEnvelope, FaArrowLeft, FaSave, FaTimes, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import RespoSidebar from '../../components/respoStock/RespoSidebar';
 import api from '../../api/axios'; 
 import { toast } from 'react-toastify'; 
 import CancelModal from '../../components/Modals/CancelModal'; 

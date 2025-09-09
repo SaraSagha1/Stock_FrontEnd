@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaUser, FaFileAlt, FaBox, FaHashtag, FaBuilding, FaCheck, FaTimes, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import RespoSidebar from '../../components/respoStock/RespoSidebar';
 import api from '../../api/axios';
 import { toast } from 'react-toastify';
 

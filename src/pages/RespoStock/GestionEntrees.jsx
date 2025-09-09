@@ -5,7 +5,7 @@ import {
   FaCalendarAlt, FaTruck, FaMoneyBillWave, FaListUl, 
   FaSignInAlt, FaUndo, FaTimes, FaPrint 
 } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import RespoSidebar from '../../components/respoStock/RespoSidebar';
 import ConfirmDeleteModal from '../../components/Modals/ConfirmDeleteModal';
 import api from '../../api/axios';
 import { toast } from 'react-toastify';

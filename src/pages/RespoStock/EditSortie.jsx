@@ -1,128 +1,236 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaSave, FaTimes, FaPlus, FaTrash, FaArrowLeft } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import { FaSave, FaTimes, FaArrowLeft } from 'react-icons/fa';
+import RespoSidebar from '../components/respoStock/RespoSidebar';
+import axios from 'axios';
 
 const EditExit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeMenu, setActiveMenu] = useState('exits');
-
-  // Données mockées pour les sélections
-  const employees = [
-    { id: 101, nom: 'Ahmed Benali', matricule: 'EMP-2020-101', organigramme: 'IT/Développement' },
-    { id: 205, nom: 'Fatima Zahra', matricule: 'EMP-2019-205', organigramme: 'RH/Formation' }
-  ];
-  
-  const products = [
-    { reference: 'PROD-IT-001', name: 'Ordinateur portable', stock: 15 },
-    { reference: 'PROD-IT-002', name: 'Souris sans fil', stock: 42 },
-    { reference: 'PROD-BURO-001', name: 'Cahier A4', stock: 200 },
-    { reference: 'PROD-BURO-002', name: 'Stylos', stock: 350 }
-  ];
-
-  // Données mockées pour la sortie à modifier
-  const mockExits = [
-    {
-      id: 1,
-      numBon: 'SORT-2023-001',
-      dateSortie: '2023-06-15T14:30:00',
-      employe: {
-        id: 101,
-        nom: 'Ahmed Benali',
-        matricule: 'EMP-2020-101',
-        organigramme: 'IT/Développement'
-      },
-      produits: [
-        { 
-          reference: 'PROD-IT-001', 
-          name: 'Ordinateur portable', 
-          quantity: 2,
-          stock: 15
-        }
-      ],
-      statut: 'validée'
-    }
-  ];
-
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true); // Commence en true pour le chargement initial
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState(null);
-  const [currentProduct, setCurrentProduct] = useState({
-    produit: null,
-    quantity: 1,
-  });
 
+  // Charger les produits et la sortie à modifier depuis l'API
   useEffect(() => {
-    // Simuler le chargement des données depuis l'API
-    const exitToEdit = mockExits.find(exit => exit.id === parseInt(id));
-    if (exitToEdit) {
-      setFormData(exitToEdit);
-    } else {
-      navigate('/stock-manager/stock/exits');
-    }
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        
+        if (!token) {
+          setError('Token d\'authentification manquant');
+          setLoading(false);
+          return;
+        }
+
+        // Charger les produits
+        const productsResponse = await axios.get('http://localhost:8000/api/products', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        setProducts(productsResponse.data);
+
+        // Charger la sortie à modifier
+        const exitResponse = await axios.get(`http://localhost:8000/api/sorties/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        
+        const exitData = exitResponse.data;
+        setFormData({
+          id: exitData.id,
+          produit_id: exitData.produit_id.toString(),
+          destination: exitData.destination,
+          commentaire: exitData.commentaire || '',
+          quantite: exitData.quantite,
+          date: exitData.date.split('T')[0],
+        });
+      } catch (err) {
+        console.error('Erreur lors du chargement des données:', err);
+        setError(err.response?.data?.message || 'Erreur lors du chargement des données');
+        // Ne pas naviguer immédiatement, laisser l'utilisateur voir l'erreur
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [id, navigate]);
 
-  const handleEmployeeChange = (e) => {
-    const selectedId = parseInt(e.target.value);
-    const selectedEmployee = employees.find(emp => emp.id === selectedId);
-    setFormData({ ...formData, employe: selectedEmployee });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
-  const handleProductSelect = (e) => {
-    const selectedRef = e.target.value;
-    const selectedProduct = products.find(p => p.reference === selectedRef);
-    setCurrentProduct({ ...currentProduct, produit: selectedProduct });
+  const getSelectedProduct = () => {
+    if (!formData || !formData.produit_id) return null;
+    return products.find(p => p.id === parseInt(formData.produit_id));
   };
 
-  const handleAddProduct = () => {
-    if (currentProduct.produit && currentProduct.quantity > 0) {
-      setFormData({
-        ...formData,
-        produits: [
-          ...formData.produits,
-          {
-            ...currentProduct.produit,
-            quantity: currentProduct.quantity,
+  const selectedProduct = getSelectedProduct();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Valider les données
+    if (!formData.destination) {
+      setError('La destination est obligatoire');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.produit_id) {
+      setError('Veuillez sélectionner un produit');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.quantite < 1) {
+      setError('La quantité doit être supérieure à 0');
+      setLoading(false);
+      return;
+    }
+
+    // Vérifier le stock (en tenant compte de l'ancienne quantité)
+    if (selectedProduct) {
+      try {
+        const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        const oldExitResponse = await axios.get(`http://localhost:8000/api/sorties/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
           }
-        ]
+        });
+        
+        const oldQuantite = oldExitResponse.data.quantite;
+        const quantiteDifference = formData.quantite - oldQuantite;
+        
+        if (quantiteDifference > 0 && quantiteDifference > selectedProduct.stock) {
+          setError(`Quantité insuffisante en stock. Stock disponible: ${selectedProduct.stock}`);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Erreur lors de la vérification du stock:', err);
+        // Continuer même si on ne peut pas vérifier le stock
+      }
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      
+      const sortieData = {
+        produit_id: parseInt(formData.produit_id),
+        destination: formData.destination,
+        commentaire: formData.commentaire,
+        quantite: parseInt(formData.quantite),
+        date: formData.date,
+      };
+
+      await axios.put(`http://localhost:8000/api/sorties/${id}`, sortieData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
-      setCurrentProduct({
-        produit: null,
-        quantity: 1,
-      });
+
+      // Redirection après modification réussie
+      navigate('/stock-manager/stock/exits');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la modification de la sortie');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveProduct = (index) => {
-    const newProducts = [...formData.produits];
-    newProducts.splice(index, 1);
-    setFormData({ ...formData, produits: newProducts });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Ici, vous enverriez normalement les modifications à votre API
-    console.log('Sortie modifiée:', formData);
-    
-    // Redirection après soumission
-    navigate('/stock-manager/stock/exits');
-  };
-
-  if (!formData) return (
-    <div className="flex h-screen bg-gray-50">
-      <RespoSidebar
-        activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
-        isSidebarOpen={isSidebarOpen}
-        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
-      <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center py-8">Chargement en cours...</div>
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <RespoSidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          isSidebarOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+        <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
+          <div className="container mx-auto px-4 py-6">
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Chargement en cours...</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error && !formData) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <RespoSidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          isSidebarOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+        <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
+          <div className="container mx-auto px-4 py-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+              <button
+                onClick={() => navigate('/stock-manager/stock/exits')}
+                className="flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+              >
+                <FaArrowLeft className="mr-2" /> Retour à la liste des sorties
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!formData) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <RespoSidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          isSidebarOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+        <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
+          <div className="container mx-auto px-4 py-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="text-center py-8">
+                <p className="text-gray-600">Aucune donnée à afficher</p>
+                <button
+                  onClick={() => navigate('/stock-manager/stock/exits')}
+                  className="mt-4 flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 mx-auto"
+                >
+                  <FaArrowLeft className="mr-2" /> Retour à la liste des sorties
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -148,129 +256,118 @@ const EditExit = () => {
                   <FaArrowLeft className="text-xl" />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold">Modifier la sortie {formData.numBon}</h2>
-                  <p className="text-yellow-100">Modifier les détails de la sortie de produits</p>
+                  <h2 className="text-2xl font-bold">Modifier la sortie #{formData.id}</h2>
+                  <p className="text-yellow-100">Modifier les détails de la sortie de produit</p>
                 </div>
               </div>
             </div>
 
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mx-6 mt-4">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employé demandeur *</label>
-                  <select
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Destination *</label>
+                  <input
+                    type="text"
+                    name="destination"
                     required
-                    value={formData.employe?.id || ''}
-                    onChange={handleEmployeeChange}
+                    value={formData.destination}
+                    onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  >
-                    <option value="">Sélectionner un employé</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.nom} ({emp.matricule}) - {emp.organigramme}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Service ou destination du produit"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de sortie *</label>
                   <input
                     type="date"
+                    name="date"
                     required
-                    value={formData.dateSortie.split('T')[0]}
-                    onChange={(e) => setFormData({ ...formData, dateSortie: e.target.value })}
+                    value={formData.date}
+                    onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Produit *</label>
+                  <select
+                    name="produit_id"
+                    required
+                    value={formData.produit_id}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  >
+                    <option value="">Sélectionner un produit</option>
+                    {products.map(prod => (
+                      <option key={prod.id} value={prod.id}>
+                        {prod.name} ({prod.reference}) - Stock: {prod.stock}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantité *</label>
+                  <input
+                    type="number"
+                    name="quantite"
+                    min="1"
+                    max={selectedProduct ? selectedProduct.stock + formData.quantite : undefined}
+                    required
+                    value={formData.quantite}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {selectedProduct && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Stock disponible: {selectedProduct.stock}
+                    </p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
+                  <textarea
+                    name="commentaire"
+                    value={formData.commentaire}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    placeholder="Commentaire optionnel"
+                    rows="2"
                   />
                 </div>
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Produits sortis</h3>
-                
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Produit *</label>
-                      <select
-                        value={currentProduct.produit?.reference || ''}
-                        onChange={handleProductSelect}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                      >
-                        <option value="">Sélectionner un produit</option>
-                        {products.map(prod => (
-                          <option key={prod.reference} value={prod.reference}>
-                            {prod.name} ({prod.stock} en stock)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantité *</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={currentProduct.quantity}
-                        onChange={(e) => setCurrentProduct({ ...currentProduct, quantity: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddProduct}
-                    disabled={!currentProduct.produit || currentProduct.quantity < 1}
-                    className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-gray-400"
-                  >
-                    <FaPlus className="mr-2" /> Ajouter la sortie
-                  </button>
-                </div>
-
-                {formData.produits.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formData.produits.map((prod, index) => (
-                          <tr key={index} className="border-b">
-                            <td className="px-4 py-2">{prod.name}</td>
-                            <td className="px-4 py-2">{prod.reference}</td>
-                            <td className="px-4 py-2">{prod.quantity}</td>
-                            <td className="px-4 py-2">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveProduct(index)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                <FaTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 py-4">Aucun produit ajouté</p>
-                )}
-              </div>
-
-              <div className="flex justify-end">
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => navigate('/stock-manager/stock/exits')}
+                  className="flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                >
+                  <FaTimes className="mr-2" /> Annuler
+                </button>
                 <button
                   type="submit"
-                  disabled={!formData.employe || formData.produits.length === 0}
+                  disabled={loading}
                   className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
                 >
-                  <FaSave className="mr-2" /> Enregistrer les modifications
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Modification...
+                    </>
+                  ) : (
+                    <>
+                      <FaSave className="mr-2" /> Enregistrer les modifications
+                    </>
+                  )}
                 </button>
               </div>
             </form>

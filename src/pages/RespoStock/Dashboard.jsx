@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaBox, FaExclamationTriangle, FaTruck, FaPercent, FaChartLine , FaSync,FaCubes, FaBoxOpen, FaClipboardList } from 'react-icons/fa';
-import StockManagerSidebar from '../../components/RespoStock/RespoSidebar';
+import StockManagerSidebar from '../../components/respoStock/RespoSidebar';
 import api from '../../api/axios';
 import { toast } from 'react-toastify';
 

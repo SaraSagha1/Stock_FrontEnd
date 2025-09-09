@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaExclamationCircle, FaBoxOpen, FaRegEye, FaEdit, FaCheckCircle } from 'react-icons/fa';
-import RespoSidebar from '../../components/RespoStock/RespoSidebar';
+import RespoSidebar from '../../components/respoStock/RespoSidebar';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios'; // Ajuste le chemin
 import { toast } from 'react-toastify'; // Ajoute toast pour les notifications

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaSearch, FaPlus, FaEdit, FaTrash, FaTimes } from 'react-icons/fa';
-import StockManagerSidebar from '../../components/RespoStock/RespoSidebar';
+import StockManagerSidebar from '../../components/respoStock/RespoSidebar';
 import api from '../../api/axios';
 import { toast } from 'react-toastify';
 import ConfirmDeleteModal from '../../components/Modals/ConfirmDeleteModal'; 
