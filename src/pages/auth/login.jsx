@@ -1,63 +1,64 @@
 import React, { useState } from 'react';
-import logo from '/src/assets/AlOmrane.jpeg';
-import api from '/src/api/axios.js'; 
+import { useNavigate } from "react-router-dom"; // 🚀 pour rediriger
+import API from "../../api/axios";
+import logo from '../../assets/logo.png';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate(); // 🚀 hook navigation
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(''); // Efface l'erreur quand l'utilisateur modifie les champs
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const response = await API.post('/login', formData);
+    console.log("Réponse complète:", response.data);
 
-    try {
-      const response = await api.post('/login', formData);
-      const { token, user } = response.data.data;
+    const { data } = response.data;
+    const { token, user } = data;
 
-      console.log('User data:', user); // Vérifie dans la console
-      console.log('Token:', token);
+    // ✅ Changez 'token' par 'auth_token' pour correspondre à axios.js
+    localStorage.setItem('auth_token', token); // ← ICI
+    localStorage.setItem('user', JSON.stringify(user));
 
-      // Stocke le token et les infos utilisateur
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+    setMessage("✅ Connexion réussie !");
 
-      // Redirection selon le rôle
-      if (user.role === 'admin') {
-        window.location.href = '/admin/Home';
-      } else if (user.role === 'responsablestock') {
-        window.location.href = '/stock-manager/dashboard';
-      } else if (user.role === 'employee') {
-        window.location.href = '/employee-home';
-      } else {
-        window.location.href = '/'; // Par défaut, page d'accueil
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Une erreur est survenue');
-    } finally {
-      setLoading(false);
+    // Redirection selon le rôle
+    if (user.role === "admin") {
+      navigate("/admin");
+    } else if (user.role === "responsablestock") {
+      navigate("/stock-manager/stock/status");
+    } else if (user.role === "employe") {
+      navigate("/employe");
+    } else {
+      navigate("/");
     }
-  };
+
+  } catch (error) {
+    setMessage("❌ Erreur : " + (error.response?.data?.message || error.message));
+    console.error("Erreur détaillée:", error.response?.data);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-green-50 to-green-100">
       <div className="bg-white shadow-xl rounded-2xl p-10 w-full max-w-md">
-        {/* Logo centré */}
+
+        {/* Logo */}
         <div className="flex justify-center mb-4">
           <img src={logo} alt="Logo AL OMRANE" className="h-16 w-auto" />
         </div>
 
-        {/* Titre principal */}
+        {/* Titre */}
         <h1 className="text-center text-2xl font-bold text-gray-800">AL OMRANE</h1>
-        <h2 className="text-center text-xl font-bold text-gray-700 mt-3">Connexion</h2>
+        <h2 className="text-center text-xl font-semibold text-gray-700 mt-2">Connexion</h2>
         <p className="text-center text-gray-500 mb-6">Accédez à votre espace de travail</p>
 
+        {/* Formulaire */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="email" className="block text-gray-600 mb-1">Email</label>
@@ -81,15 +82,16 @@ const Login = () => {
               placeholder="********"
             />
           </div>
-          {error && <p className="text-red-500 text-center">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-green-700 to-red-700 hover:from-green-800 hover:to-red-800 text-white py-2 rounded-md font-semibold transition disabled:opacity-50"
+            className="w-full bg-gradient-to-r from-green-700 to-red-700 hover:from-green-800 hover:to-red-800 text-white py-2 rounded-md font-semibold transition"
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
+            Se connecter
           </button>
         </form>
+
+        {/* Message */}
+        {message && <p className="text-center mt-4 text-gray-700">{message}</p>}
 
         {/* Footer */}
         <p className="text-center text-gray-400 text-sm mt-6">
