@@ -13,11 +13,10 @@ const AddExit = () => {
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    produit_id: '',
     destination: '',
     commentaire: '',
-    quantite: 1,
     date: new Date().toISOString().split('T')[0],
+    produits: [{ produit_id: '', quantite: 1 }],
   });
 
   // Charger les produits depuis l'API
@@ -29,7 +28,7 @@ const AddExit = () => {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
-          }
+          },
         });
         setProducts(response.data);
       } catch (err) {
@@ -46,11 +45,46 @@ const AddExit = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const getSelectedProduct = () => {
-    return products.find(p => p.id === parseInt(formData.produit_id));
+  const handleProductChange = (index, field, value) => {
+    const updatedProduits = [...formData.produits];
+    updatedProduits[index] = { ...updatedProduits[index], [field]: value };
+    setFormData({ ...formData, produits: updatedProduits });
   };
 
-  const selectedProduct = getSelectedProduct();
+  const addProduct = () => {
+    setFormData({
+      ...formData,
+      produits: [...formData.produits, { produit_id: '', quantite: 1 }],
+    });
+  };
+
+  const removeProduct = (index) => {
+    if (formData.produits.length === 1) {
+      setError('Vous devez sélectionner au moins un produit');
+      return;
+    }
+    const updatedProduits = formData.produits.filter((_, i) => i !== index);
+    setFormData({ ...formData, produits: updatedProduits });
+  };
+
+  const validateProducts = () => {
+    for (const produit of formData.produits) {
+      if (!produit.produit_id) {
+        setError('Veuillez sélectionner un produit pour chaque entrée');
+        return false;
+      }
+      if (produit.quantite < 1) {
+        setError('La quantité doit être supérieure à 0 pour chaque produit');
+        return false;
+      }
+      const selectedProduct = products.find(p => p.id === parseInt(produit.produit_id));
+      if (selectedProduct && produit.quantite > selectedProduct.stock) {
+        setError(`Quantité insuffisante pour ${selectedProduct.name}. Stock disponible: ${selectedProduct.stock}`);
+        return false;
+      }
+    }
+    return true;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,21 +98,13 @@ const AddExit = () => {
       return;
     }
 
-    if (!formData.produit_id) {
-      setError('Veuillez sélectionner un produit');
+    if (formData.produits.length === 0) {
+      setError('Veuillez ajouter au moins un produit');
       setLoading(false);
       return;
     }
 
-    if (formData.quantite < 1) {
-      setError('La quantité doit être supérieure à 0');
-      setLoading(false);
-      return;
-    }
-
-    // Vérifier le stock
-    if (selectedProduct && formData.quantite > selectedProduct.stock) {
-      setError(`Quantité insuffisante en stock. Stock disponible: ${selectedProduct.stock}`);
+    if (!validateProducts()) {
       setLoading(false);
       return;
     }
@@ -87,22 +113,23 @@ const AddExit = () => {
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
       
       const sortieData = {
-        produit_id: parseInt(formData.produit_id),
         destination: formData.destination,
         commentaire: formData.commentaire,
-        quantite: parseInt(formData.quantite),
         date: formData.date,
+        produits: formData.produits.map(p => ({
+          produit_id: parseInt(p.produit_id),
+          quantite: parseInt(p.quantite),
+        })),
       };
 
       await axios.post('http://localhost:8000/api/sorties', sortieData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
 
-      // Redirection après soumission réussie
       navigate('/stock-manager/stock/exits');
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement de la sortie');
@@ -114,18 +141,15 @@ const AddExit = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <RespoSidebar
         activeMenu={activeMenu}
         setActiveMenu={setActiveMenu}
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
-
       <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
         <div className="container mx-auto px-4 py-6">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            {/* En-tête */}
             <div className="bg-gradient-to-r from-yellow-600 to-yellow-800 p-6 text-white">
               <div className="flex items-center">
                 <button 
@@ -140,13 +164,11 @@ const AddExit = () => {
                 </div>
               </div>
             </div>
-
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mx-6 mt-4">
                 {error}
               </div>
             )}
-
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
@@ -161,7 +183,6 @@ const AddExit = () => {
                     placeholder="Service ou destination du produit"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de sortie *</label>
                   <input
@@ -173,44 +194,6 @@ const AddExit = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Produit *</label>
-                  <select
-                    name="produit_id"
-                    required
-                    value={formData.produit_id}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  >
-                    <option value="">Sélectionner un produit</option>
-                    {products.map(prod => (
-                      <option key={prod.id} value={prod.id}>
-                        {prod.name} ({prod.reference}) - Stock: {prod.stock}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantité *</label>
-                  <input
-                    type="number"
-                    name="quantite"
-                    min="1"
-                    max={selectedProduct ? selectedProduct.stock : undefined}
-                    required
-                    value={formData.quantite}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  />
-                  {selectedProduct && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Stock disponible: {selectedProduct.stock}
-                    </p>
-                  )}
-                </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
                   <textarea
@@ -223,19 +206,77 @@ const AddExit = () => {
                   />
                 </div>
               </div>
-
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Produits *</label>
+                  <button
+                    type="button"
+                    onClick={addProduct}
+                    className="flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    <FaPlus className="mr-1" /> Ajouter un produit
+                  </button>
+                </div>
+                {formData.produits.map((produit, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Produit</label>
+                      <select
+                        name="produit_id"
+                        required
+                        value={produit.produit_id}
+                        onChange={(e) => handleProductChange(index, 'produit_id', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      >
+                        <option value="">Sélectionner un produit</option>
+                        {products.map(prod => (
+                          <option key={prod.id} value={prod.id}>
+                            {prod.name} ({prod.reference}) - Stock: {prod.stock}
+                          </option>
+                        ))}
+                      </select>
+                      {produit.produit_id && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Stock disponible: {products.find(p => p.id === parseInt(produit.produit_id))?.stock || 0}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantité</label>
+                      <input
+                        type="number"
+                        name="quantite"
+                        min="1"
+                        max={products.find(p => p.id === parseInt(produit.produit_id))?.stock}
+                        required
+                        value={produit.quantite}
+                        onChange={(e) => handleProductChange(index, 'quantite', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => removeProduct(index)}
+                        className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      >
+                        <FaTrash className="mr-1" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
                   onClick={() => navigate('/stock-manager/stock/exits')}
                   className="flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                >
-                  <FaTimes className="mr-2" /> Annuler
+                > Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                  className="flex items-center px-6 py-3 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800 disabled:bg-gray-400"
                 >
                   {loading ? (
                     <>

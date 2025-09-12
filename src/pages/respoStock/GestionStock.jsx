@@ -343,17 +343,6 @@ const StockManagement = () => {
     return (item.qteEntree || 0) - (item.qteSortie || 0);
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-gray-50 justify-center items-center">
-        <div className="text-center">
-          <FaSpinner className="animate-spin h-12 w-12 text-blue-600 mx-auto" />
-          <p className="mt-4 text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!isAuthenticated && authChecked) {
     return (
       <div className="flex h-screen bg-gray-50">
@@ -473,20 +462,20 @@ const StockManagement = () => {
           )}
 
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">
+            <div className="bg-gradient-to-r from-yellow-600 to-yellow-800 p-6 text-white">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold flex items-center">
-                    <FaWarehouse className="mr-3" /> Gestion du Stock
+                     Etat du Stock
                   </h2>
-                  <p className="text-blue-100">Données en direct depuis la base de données</p>
+                  <p className="text-yellow-100">Données en direct depuis la base de données</p>
                 </div>
                 <div className="flex space-x-3">
                   {/* Bouton d'exportation */}
                   <button
                     onClick={handleExportStock}
                     disabled={exportLoading}
-                    className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                    className="bg-white text-yellow-700 hover:bg-yellow-50 px-4 py-2 rounded-lg flex items-center font-medium"
                     title="Exporter le stock"
                   >
                     {exportLoading ? (
@@ -499,7 +488,7 @@ const StockManagement = () => {
                   
                   <button
                     onClick={fetchStock}
-                    className="flex items-center bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition"
+                    className="flex items-center bg-yellow-700 text-white px-4 py-2 rounded-lg hover:bg-yellow-800 transition"
                     title="Actualiser"
                   >
                     <FaSync className="mr-2" /> Actualiser
@@ -584,7 +573,7 @@ const StockManagement = () => {
                       Valeur Stock
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dernière MAJ
+                      Dernière Modif
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -597,7 +586,7 @@ const StockManagement = () => {
                       const stockActuel = calculerStockActuel(item);
                       return (
                         <tr key={item.id} className="hover:bg-blue-50 transition">
-                          <td className="px-6 py-4 whitespace-nowrap font-medium text-blue-700">
+                          <td className="px-6 py-4 whitespace-nowrap font-medium text-yellow-700">
                             {item.id}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -676,8 +665,8 @@ const StockManagement = () => {
                         <p><span className="font-medium">ID Stock:</span> {selectedStock.id}</p>
                         <p><span className="font-medium">Produit:</span> {selectedStock.produit?.name || 'N/A'}</p>
                         <p><span className="font-medium">Référence:</span> {selectedStock.produit?.reference || 'N/A'}</p>
-                        <p><span className="font-medium">Prix:</span> {selectedStock.produit?.price ? `${selectedStock.produit.price} DH` : 'N/A'}</p>
-                        <p><span className="font-medium">Stock minimum:</span> {selectedStock.produit?.stock_min || 0}</p>
+                         <p><span className="font-medium">Créé le:</span> {formatDate(selectedStock.created_at)}</p>
+                        <p><span className="font-medium">Dernière Modif:</span> {formatDate(selectedStock.updated_at)}</p>
                       </div>
                     </div>
                     <div>
@@ -691,8 +680,6 @@ const StockManagement = () => {
                           </span>
                         </p>
                         <p><span className="font-medium">Valeur stock:</span> {formatCurrency(selectedStock.valeurStock)}</p>
-                        <p><span className="font-medium">Créé le:</span> {formatDate(selectedStock.created_at)}</p>
-                        <p><span className="font-medium">Dernière MAJ:</span> {formatDate(selectedStock.updated_at)}</p>
                       </div>
                     </div>
                   </div>
@@ -700,7 +687,7 @@ const StockManagement = () => {
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={closeDetailModal}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                     >
                       Fermer
                     </button>

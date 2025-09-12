@@ -149,6 +149,22 @@ const EmployeeRequests = () => {
     );
   };
 
+  // Helper function to extract hierarchy fields
+  const getHierarchyFields = (hierarchy) => {
+    if (!hierarchy || hierarchy.length === 0) {
+      return { direction: 'Non défini', department: 'N/A', division: 'N/A' };
+    }
+
+    // Take the last 3 levels (most specific)
+    const levels = hierarchy.slice(-3);
+    // Assign fields based on position (from most specific to least specific)
+    const division = levels[0]?.nom || 'N/A'; // Most specific level
+    const department = levels[1]?.nom || 'N/A'; // Second most specific
+    const direction = levels[2]?.nom || levels[1]?.nom || levels[0]?.nom || 'Non défini'; // Fallback to available levels
+
+    return { direction, department, division };
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -185,74 +201,77 @@ const EmployeeRequests = () => {
                   </div>
                 </div>
               ) : requests.length > 0 ? (
-                requests.map(request => (
-                  <div key={request.id} className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition">
-                    {/* En-tête de la carte */}
-                    <div className="bg-purple-50 p-4 border-b">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-purple-800">{request.user?.name || 'Inconnu'}</h3>
-                          <p className="text-sm text-purple-600">{request.user?.employe?.poste || 'Non défini'}</p>
+                requests.map(request => {
+                  const { direction, department, division } = getHierarchyFields(request.user?.organigramme?.hierarchy);
+                  return (
+                    <div key={request.id} className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition">
+                      {/* En-tête de la carte */}
+                      <div className="bg-purple-50 p-4 border-b">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium text-purple-800">{request.user?.name || 'Inconnu'}</h3>
+                            <p className="text-sm text-purple-600">{request.user?.employe?.poste || 'Non défini'}</p>
+                          </div>
+                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                            {formatDate(request.created_at) || 'N/A'}
+                          </span>
                         </div>
-                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                          {formatDate(request.created_at) || 'N/A'}
-                        </span>
                       </div>
-                    </div>
 
-                    {/* Corps de la carte */}
-                    <div className="p-4">
-                      <div className="mb-4">
-                        <div className="flex items-center text-sm text-gray-500 mb-1">
-                          <FaBuilding className="mr-2" />
-                          <span>{request.user?.organigramme?.direction || 'Non défini'}</span>
-                        </div>
+                      {/* Corps de la carte */}
+                      <div className="p-4">
+                        <div className="mb-4">
+                          <div className="flex items-center text-sm text-gray-500 mb-1">
+                            <FaBuilding className="mr-2" />
+                            <span className="text-gray-800">{direction}</span>
+                          </div>
                         <div className="text-xs text-gray-400 pl-6">
-                          {request.user?.organigramme?.department || 'N/A'} • {request.user?.organigramme?.division || 'N/A'}
+                          <span className="text-gray-700">{department}</span> • <span className="text-gray-600">{division}</span>
                         </div>
                       </div>
 
-                      <div className="mb-4">
-                        <div className="flex items-center font-medium">
-                          <FaBox className="mr-2 text-purple-500" />
-                          <span>{request.produit?.name || 'Produit inconnu'}</span>
+                        <div className="mb-4">
+                          <div className="flex items-center font-medium">
+                            <FaBox className="mr-2 text-purple-500" />
+                            <span>{request.produit?.name || 'Produit inconnu'}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 pl-6">
+                            Réf: {request.produit?.reference || 'N/A'}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500 pl-6">
-                          Réf: {request.produit?.reference || 'N/A'}
+
+                        <div className="flex items-center mb-4">
+                          <FaHashtag className="mr-2 text-purple-500" />
+                          <span className="font-medium">Quantité: {request.quantite || 0}</span>
+                        </div>
+
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-medium">Motif:</span> {request.raison || 'Non spécifié'}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center mb-4">
-                        <FaHashtag className="mr-2 text-purple-500" />
-                        <span className="font-medium">Quantité: {request.quantite || 0}</span>
-                      </div>
-
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-700">
-                          <span className="font-medium">Motif:</span> {request.raison || 'Non spécifié'}
-                        </p>
+                      {/* Pied de carte avec actions */}
+                      <div className="bg-gray-50 px-4 py-3 border-t flex justify-end space-x-3">
+                        <button
+                          onClick={() => openRejectModal(request)}
+                          className="px-3 py-1 text-red-600 border border-red-300 rounded hover:bg-red-50 flex items-center transition"
+                          disabled={loading}
+                        >
+                          <FaTimes className="mr-1" /> Refuser
+                        </button>
+                        <button
+                          onClick={() => openApproveModal(request)}
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 flex items-center transition"
+                          disabled={loading}
+                        >
+                          <FaCheck className="mr-1" /> Approuver
+                        </button>
                       </div>
                     </div>
-
-                    {/* Pied de carte avec actions */}
-                    <div className="bg-gray-50 px-4 py-3 border-t flex justify-end space-x-3">
-                      <button
-                        onClick={() => openRejectModal(request)}
-                        className="px-3 py-1 text-red-600 border border-red-300 rounded hover:bg-red-50 flex items-center transition"
-                        disabled={loading}
-                      >
-                        <FaTimes className="mr-1" /> Refuser
-                      </button>
-                      <button
-                        onClick={() => openApproveModal(request)}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 flex items-center transition"
-                        disabled={loading}
-                      >
-                        <FaCheck className="mr-1" /> Approuver
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="col-span-full text-center py-12">
                   <div className="bg-purple-50 rounded-lg p-8">
@@ -288,6 +307,12 @@ const EmployeeRequests = () => {
         confirmText="Rejeter"
         confirmColor="bg-red-600"
       >
+        <textarea
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Motif du rejet"
+          className="w-full p-2 border rounded-lg"
+        />
       </ConfirmationModal>
     </div>
   );
