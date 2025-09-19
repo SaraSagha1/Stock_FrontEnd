@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaSave, FaTimes, FaArrowLeft } from 'react-icons/fa';
-import RespoSidebar from '../components/respoStock/RespoSidebar';
+import RespoSidebar from '../../components/RespoStock/RespoSidebar.jsx';
 import axios from 'axios';
 
 const EditExit = () => {
