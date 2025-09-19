@@ -14,12 +14,10 @@ import 'react-toastify/dist/ReactToastify.css';
   //</React.StrictMode>
 //);
 
-// ✅ Tu DOIS ajouter cette ligne :
-const root = ReactDOM.createRoot(document.getElementById('root'));
 
-root.render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+      <App />
 
   </React.StrictMode>
 );

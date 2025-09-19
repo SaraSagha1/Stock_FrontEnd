@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   FaSignOutAlt,
   FaChevronDown,
@@ -19,19 +19,43 @@ import {
   FaSignOutAlt as FaExit
 } from 'react-icons/fa';
 import logo from '../../assets/logo.png';
+import api from '../../api/axios'; 
+import { toast } from 'react-toastify';
 
 const RespoSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [openSubmenus, setOpenSubmenus] = useState({
     products: false,
     stock: false
   });
+
+  // Charger l'état initial des sous-menus basé sur l'URL
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes('/products/')) setOpenSubmenus(prev => ({ ...prev, products: true }));
+    if (path.includes('/stock/')) setOpenSubmenus(prev => ({ ...prev, stock: true }));
+  }, [location.pathname]);
 
   const toggleSubmenu = (menu) => {
     setOpenSubmenus(prev => ({
       ...prev,
       [menu]: !prev[menu]
     }));
+  };
+
+  // Fonction de déconnexion
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+      // Supprimer les données d'authentification
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      toast.success('Déconnexion réussie');
+      navigate('/login'); // Rediriger vers la page de login
+    } catch (err) {
+      toast.error('Erreur lors de la déconnexion : ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const menuItems = [
@@ -142,10 +166,32 @@ const RespoSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
     }
   ];
 
+  // Déterminer l'élément actif basé sur l'URL
+  const getActiveMenuFromPath = () => {
+    const path = location.pathname;
+    if (path === '/stock-manager/dashboard') return 'dashboard';
+    if (path === '/stock-manager/products/families') return 'families';
+    if (path === '/stock-manager/products/subfamilies') return 'subfamilies';
+    if (path === '/stock-manager/products/list') return 'products-list';
+    if (path === '/stock-manager/products/tva') return 'tva';
+    if (path === '/stock-manager/stock/entries') return 'stock-entries';
+    if (path === '/stock-manager/stock/exits') return 'stock-exits';
+    if (path === '/stock-manager/stock/status') return 'stock-status';
+    if (path === '/stock-manager/suppliers') return 'suppliers';
+    if (path === '/stock-manager/requests') return 'requests';
+    if (path === '/stock-manager/alerts') return 'alerts';
+    return activeMenu; // Retourne l'état actuel si pas de correspondance
+  };
+
+  useEffect(() => {
+    const currentMenu = getActiveMenuFromPath();
+    if (currentMenu !== activeMenu) setActiveMenu(currentMenu);
+  }, [location.pathname, activeMenu, setActiveMenu]);
+
   return (
     <div 
-      className={`bg-gray-800 text-white h-full fixed transition-all duration-300 ease-in-out z-20
-        ${isSidebarOpen ? 'w-64' : 'w-30'}`}
+      className={`bg-gray-800 text-white h-full fixed transition-all duration-300 ease-in-out z-10
+        ${isSidebarOpen ? 'w-64' : 'w-20'}`}
     >
       <div className="h-full flex flex-col">
         {/* Logo et bouton toggle */}
@@ -173,7 +219,7 @@ const RespoSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
               <button
                 onClick={item.action}
                 className={`flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-700 transition ${
-                  activeMenu === item.id ? 'bg-green-600 font-semibold' : ''
+                  getActiveMenuFromPath() === item.id ? 'bg-green-600 font-semibold' : ''
                 } ${isSidebarOpen ? 'px-4' : 'px-2 justify-center'}`}
               >
                 <div className="flex items-center space-x-3">
@@ -193,7 +239,7 @@ const RespoSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
                       key={index}
                       onClick={subItem.action}
                       className={`flex items-center space-x-2 w-full py-2 px-3 rounded hover:bg-gray-700 text-sm transition text-left ${
-                        activeMenu === subItem.action.toString().match(/setActiveMenu\('([^']+)'\)/)?.[1] ? 'bg-gray-600' : ''
+                        getActiveMenuFromPath() === subItem.action.toString().match(/setActiveMenu\('([^']+)'\)/)?.[1] ? 'bg-green-600' : ''
                       }`}
                     >
                       {subItem.icon && <span className="text-gray-400">{subItem.icon}</span>}
@@ -209,6 +255,7 @@ const RespoSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
         {/* Déconnexion */}
         <div className="mb-4 px-2">
           <button 
+            onClick={handleLogout}
             className={`flex items-center ${
               isSidebarOpen ? 'justify-start space-x-3 px-4' : 'justify-center'
             } p-3 w-full rounded-lg bg-red-600 hover:bg-red-700 transition text-white`}

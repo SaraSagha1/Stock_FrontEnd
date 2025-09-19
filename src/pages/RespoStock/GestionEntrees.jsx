@@ -278,7 +278,7 @@ const EntryManagement = () => {
                 <div className="flex space-x-4">
                   <button
                     onClick={resetFilters}
-                    className="bg-white text-yellow-700 hover:bg-yellow-50 px-4 py-2 rounded-lg flex items-center font-medium"
+                    className="flex items-center bg-yellow-700 text-white px-4 py-2 rounded-lg hover:bg-yellow-800 transition"
                     disabled={loading}
                   >
                     <FaUndo className="mr-2" /> Réinitialiser les filtres

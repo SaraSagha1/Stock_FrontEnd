@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaSearch, FaPlus, FaEdit, FaTrash, FaFileAlt, 
-  FaCalendarAlt, FaUser, FaSitemap, FaPrint, FaUndo, 
+  FaCalendarAlt, FaBoxes , FaSitemap, FaPrint, FaUndo, 
   FaSignOutAlt as FaExit, FaTimes, FaSpinner, FaExclamationCircle,
   FaCheckCircle, FaLock, FaSignInAlt, FaSync, FaServer,
   FaBuilding, FaComment
 } from 'react-icons/fa';
 import RespoSidebar from '../../components/respoStock/RespoSidebar';
+import ConfirmDeleteModal from '../../components/Modals/ConfirmDeleteModal';
 
 const ExitManagement = () => {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ const ExitManagement = () => {
   const [activeMenu, setActiveMenu] = useState('exits');
   const [selectedExit, setSelectedExit] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
@@ -24,27 +27,23 @@ const ExitManagement = () => {
   // États pour les données
   const [exits, setExits] = useState([]);
   const [filteredExits, setFilteredExits] = useState([]);
-  const [products, setProducts] = useState([]); // Pour stocker les informations produits
+  const [products, setProducts] = useState([]);
 
   // Filtres
   const [filters, setFilters] = useState({
     produit: '',
     destination: '',
-    dateFrom: '',
-    dateTo: ''
+    date: ''
   });
 
-  // Récupérer le token d'authentification depuis différents storage
+  // Récupérer le token d'authentification
   const getAuthToken = () => {
-    // LocalStorage
     const localToken = localStorage.getItem('auth_token');
     if (localToken) return localToken;
     
-    // SessionStorage
     const sessionToken = sessionStorage.getItem('auth_token');
     if (sessionToken) return sessionToken;
     
-    // Cookies
     const cookieToken = document.cookie
       .split('; ')
       .find(row => row.startsWith('token='))
@@ -65,7 +64,6 @@ const ExitManagement = () => {
         return;
       }
 
-      // Tester le token avec une requête simple
       const testResponse = await fetch('http://localhost:8000/api/user', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -80,13 +78,11 @@ const ExitManagement = () => {
       } else {
         setIsAuthenticated(false);
         setDebugInfo('❌ Token invalide ou expiré');
-        // Nettoyer les tokens invalides
         localStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_token');
       }
       
       setAuthChecked(true);
-      
     } catch (err) {
       console.error('Erreur vérification auth:', err);
       setIsAuthenticated(false);
@@ -102,7 +98,7 @@ const ExitManagement = () => {
   useEffect(() => {
     if (isAuthenticated && authChecked) {
       fetchExits();
-      fetchProducts(); // Charger les informations produits
+      fetchProducts();
     } else if (authChecked) {
       setLoading(false);
     }
@@ -124,9 +120,12 @@ const ExitManagement = () => {
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
+      } else {
+        throw new Error('Erreur lors du chargement des produits');
       }
     } catch (err) {
       console.error('Erreur lors du chargement des produits:', err);
+      setError(err.message);
     }
   };
 
@@ -147,7 +146,6 @@ const ExitManagement = () => {
       const response = await fetch(apiUrl, {
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         credentials: 'include'
@@ -156,7 +154,6 @@ const ExitManagement = () => {
       console.log('📋 Status:', response.status);
       
       if (response.status === 401) {
-        // Token invalide ou expiré
         localStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_token');
         setIsAuthenticated(false);
@@ -168,12 +165,6 @@ const ExitManagement = () => {
         throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
       
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error('Le serveur retourne une réponse non-JSON');
-      }
-      
       const data = await response.json();
       
       if (!Array.isArray(data)) {
@@ -183,7 +174,6 @@ const ExitManagement = () => {
       setExits(data);
       setFilteredExits(data);
       setLoading(false);
-      
     } catch (err) {
       console.error('❌ Erreur fetchExits:', err);
       setError(err.message);
@@ -237,10 +227,11 @@ const ExitManagement = () => {
   };
 
   // Options uniques pour les filtres
-  const productNames = [...new Set(exits.map(exit => {
-    const produit = products.find(p => p.id === exit.produit_id);
-    return produit ? produit.name : 'Inconnu';
-  }))];
+  const productNames = [...new Set(
+    exits.flatMap(exit => 
+      exit.produits.map(produit => produit.name)
+    ).filter(Boolean)
+  )];
   
   const destinations = [...new Set(exits.map(exit => exit.destination).filter(Boolean))];
 
@@ -249,10 +240,11 @@ const ExitManagement = () => {
     let result = [...exits];
     
     if (filters.produit) {
-      result = result.filter(exit => {
-        const product = products.find(p => p.id === exit.produit_id);
-        return product && product.name.toLowerCase().includes(filters.produit.toLowerCase());
-      });
+      result = result.filter(exit => 
+        exit.produits.some(produit => 
+          produit.name.toLowerCase().includes(filters.produit.toLowerCase())
+        )
+      );
     }
     
     if (filters.destination) {
@@ -260,19 +252,14 @@ const ExitManagement = () => {
         exit.destination && exit.destination.toLowerCase().includes(filters.destination.toLowerCase())
       );
     }
-    
-    if (filters.dateFrom) {
-      const dateFrom = new Date(filters.dateFrom);
-      result = result.filter(exit => new Date(exit.date) >= dateFrom);
-    }
-    
-    if (filters.dateTo) {
-      const dateTo = new Date(filters.dateTo);
-      result = result.filter(exit => new Date(exit.date) <= dateTo);
+        
+    if (filters.date) {
+      const date = new Date(filters.date);
+      result = result.filter(exit => new Date(exit.date) <= date);
     }
     
     setFilteredExits(result);
-  }, [filters, exits, products]);
+  }, [filters, exits]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -283,8 +270,7 @@ const ExitManagement = () => {
     setFilters({
       produit: '',
       destination: '',
-      dateFrom: '',
-      dateTo: ''
+      date: ''
     });
   };
 
@@ -327,27 +313,39 @@ const ExitManagement = () => {
   };
 
   const handleDeleteExit = async (id) => {
-    if (window.confirm('Supprimer cette sortie ? Cette action est irréversible.')) {
-      try {
-        const token = getAuthToken();
-        const response = await fetch(`http://localhost:8000/api/sorties/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        
-        if (response.ok) {
-          setExits(exits.filter(exit => exit.id !== id));
-          alert('Sortie supprimée avec succès');
-        } else {
-          throw new Error('Erreur lors de la suppression');
-        }
-      } catch (err) {
-        setError(err.message);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`http://localhost:8000/api/sorties/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        setExits(exits.filter(exit => exit.id !== id));
+        setFilteredExits(filteredExits.filter(exit => exit.id !== id));
+        setIsDeleteModalOpen(false);
+        setEntryToDelete(null);
+      } else {
+        throw new Error('Erreur lors de la suppression');
       }
+    } catch (err) {
+      setError(err.message);
+      setIsDeleteModalOpen(false);
+      setEntryToDelete(null);
     }
+  };
+
+  const openDeleteModal = (exit) => {
+    setEntryToDelete(exit);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setEntryToDelete(null);
   };
 
   const openDetailModal = (exit) => {
@@ -359,111 +357,88 @@ const ExitManagement = () => {
     setIsDetailModalOpen(false);
   };
 
-
- const handleViewReceipt = (id) => {
-  const token = getAuthToken();
-  if (!token) {
-    setError('Token d\'authentification manquant');
-    return;
-  }
-  
-  // Ouvrir dans un nouvel onglet
-  const newWindow = window.open('', '_blank');
-  
-  // Afficher un message de chargement
-  newWindow.document.write(`
-    <html>
-      <head><title>Chargement du bon de sortie...</title></head>
-      <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-        <div style="text-align: center;">
-          <h2>Chargement du bon de sortie...</h2>
-          <p>Veuillez patienter</p>
-        </div>
-      </body>
-    </html>
-  `);
-  
-  // Faire la requête pour récupérer le HTML
-  fetch(`http://localhost:8000/api/sorties/${id}/bon`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'text/html',
-    },
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Erreur lors de la récupération du bon');
+  const handleViewReceipt = (id) => {
+    const token = getAuthToken();
+    if (!token) {
+      setError('Token d\'authentification manquant');
+      return;
     }
-    return response.text();
-  })
-  .then(html => {
-    // Remplacer le contenu de la nouvelle fenêtre par le HTML reçu
-    newWindow.document.open();
-    newWindow.document.write(html);
-    newWindow.document.close();
-  })
-  .catch(err => {
-    newWindow.document.open();
+    
+    const newWindow = window.open('', '_blank');
+    
     newWindow.document.write(`
       <html>
-        <head><title>Erreur</title></head>
+        <head><title>Chargement du bon de sortie...</title></head>
         <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-          <div style="text-align: center; color: red;">
-            <h2>Erreur lors du chargement du bon</h2>
-            <p>${err.message}</p>
+          <div style="text-align: center;">
+            <h2>Chargement du bon de sortie...</h2>
+            <p>Veuillez patienter</p>
           </div>
         </body>
       </html>
     `);
-    newWindow.document.close();
-    setError('Impossible d\'afficher le bon: ' + err.message);
-  });
-};
-
-const handlePrintReceipt = async (id) => {
-  try {
-    const token = getAuthToken();
-    if (!token) {
-      throw new Error('Token d\'authentification manquant');
-    }
-
-    // Pour l'impression, on utilise la route qui retourne un PDF
-    const response = await fetch(`http://localhost:8000/api/sorties/${id}/imprimer`, {
+    
+    fetch(`http://localhost:8000/api/sorties/${id}/bon`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Accept': 'text/html',
       },
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Erreur lors de la récupération du bon');
+      }
+      return response.text();
+    })
+    .then(html => {
+      newWindow.document.open();
+      newWindow.document.write(html);
+      newWindow.document.close();
+    })
+    .catch(err => {
+      newWindow.document.open();
+      newWindow.document.write(`
+        <html>
+          <head><title>Erreur</title></head>
+          <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+            <div style="text-align: center; color: red;">
+              <h2>Erreur lors du chargement du bon</h2>
+              <p>${err.message}</p>
+            </div>
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+      setError('Impossible d\'afficher le bon: ' + err.message);
     });
-    
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      
-      // Ouvrir le PDF dans un nouvel onglet pour impression
-      const newWindow = window.open(url, '_blank');
-      
-      // Si vous voulez imprimer automatiquement
-      // newWindow.onload = function() {
-      //   newWindow.print();
-      // };
-    } else {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Erreur lors de l\'impression');
-    }
-  } catch (err) {
-    setError('Impossible d\'imprimer le reçu: ' + err.message);
-  }
-};
+  };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-gray-50 justify-center items-center">
-        <div className="text-center">
-          <FaSpinner className="animate-spin h-12 w-12 text-blue-600 mx-auto" />
-          <p className="mt-4 text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
+  const handlePrintReceipt = async (id) => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Token d\'authentification manquant');
+      }
+
+      const response = await fetch(`http://localhost:8000/api/sorties/${id}/imprimer`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const newWindow = window.open(url, '_blank');
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Erreur lors de l\'impression');
+      }
+    } catch (err) {
+      setError('Impossible d\'imprimer le reçu: ' + err.message);
+    }
+  };
+
 
   if (!isAuthenticated && authChecked) {
     return (
@@ -474,7 +449,6 @@ const handlePrintReceipt = async (id) => {
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
-
         <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
           <div className="container mx-auto px-4 py-6">
             <div className="max-w-2xl mx-auto">
@@ -484,7 +458,6 @@ const handlePrintReceipt = async (id) => {
                   <h2 className="text-2xl font-bold text-gray-800 mb-2">Authentification Requise</h2>
                   <p className="text-gray-600">Vous devez être connecté pour accéder à la gestion des sorties.</p>
                 </div>
-                
                 <div className="space-y-4">
                   <button
                     onClick={handleLoginRedirect}
@@ -493,7 +466,6 @@ const handlePrintReceipt = async (id) => {
                     <FaSignInAlt className="mr-2" />
                     Se connecter
                   </button>
-                  
                   <button
                     onClick={testApiConnection}
                     className="w-full flex items-center justify-center bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition"
@@ -501,7 +473,6 @@ const handlePrintReceipt = async (id) => {
                     <FaServer className="mr-2" />
                     Tester la connexion API
                   </button>
-
                   <button
                     onClick={handleRetry}
                     className="w-full flex items-center justify-center bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition"
@@ -510,7 +481,6 @@ const handlePrintReceipt = async (id) => {
                     Réessayer
                   </button>
                 </div>
-
                 {debugInfo && (
                   <details className="mt-6">
                     <summary className="cursor-pointer font-medium text-gray-700">Détails techniques</summary>
@@ -519,7 +489,6 @@ const handlePrintReceipt = async (id) => {
                     </div>
                   </details>
                 )}
-
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-2">ℹ️ Information</h3>
                   <p className="text-sm text-blue-700">
@@ -536,18 +505,14 @@ const handlePrintReceipt = async (id) => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <RespoSidebar
         activeMenu={activeMenu}
         setActiveMenu={setActiveMenu}
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
-
-      {/* Contenu principal */}
       <div className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
         <div className="container mx-auto px-4 py-6">
-          
           {error && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
               <div className="flex justify-between items-center">
@@ -575,7 +540,6 @@ const handlePrintReceipt = async (id) => {
               </div>
             </div>
           )}
-
           {!error && exits.length > 0 && (
             <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
               <div className="flex items-center">
@@ -584,9 +548,7 @@ const handlePrintReceipt = async (id) => {
               </div>
             </div>
           )}
-
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            {/* En-tête */}
             <div className="bg-gradient-to-r from-yellow-600 to-yellow-800 p-6 text-white">
               <div className="flex justify-between items-center">
                 <div>
@@ -612,8 +574,6 @@ const handlePrintReceipt = async (id) => {
                 </div>
               </div>
             </div>
-
-            {/* Filtres */}
             <div className="p-6 border-b bg-gray-50">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -630,7 +590,6 @@ const handlePrintReceipt = async (id) => {
                     ))}
                   </select>
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
                   <select
@@ -647,45 +606,16 @@ const handlePrintReceipt = async (id) => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                  <select
-                    name="statut"
-                    value={filters.statut}
-                    onChange={handleFilterChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  >
-                    <option value="">Tous</option>
-                    <option value="validée">Validée</option>
-                    <option value="en_attente">En attente</option>
-                    <option value="rejetée">Rejetée</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                  <input
-                    type="date"
-                    name="dateFrom"
-                    value={filters.dateFrom}
-                    onChange={handleFilterChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  />
-                </div>
-                
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
                   <input
                     type="date"
-                    name="dateTo"
-                    value={filters.dateTo}
+                    name="date"
+                    value={filters.date}
                     onChange={handleFilterChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                   />
                 </div>
               </div>
-              
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={resetFilters}
@@ -696,29 +626,35 @@ const handlePrintReceipt = async (id) => {
                 </button>
               </div>
             </div>
-
-            {/* Tableau des sorties */}
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ID
+                       <div className="flex items-center">
+                        <FaFileAlt className="mr-2" /> Produits
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produit
+                      <div className="flex items-center">
+                        <FaBoxes className="mr-2" />Quantité Totale
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantité
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center">
+                      <FaBuilding className="mr-2" />
                       Destination
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Commentaire
+                      <div className="flex items-center">
+                      <FaComment className="mr-2" />
+                      Commentaire</div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
+                      <div className="flex items-center">
+                      <FaCalendarAlt className="mr-2" /> Date
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -726,79 +662,79 @@ const handlePrintReceipt = async (id) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredExits.length > 0 ? (
-                    filteredExits.map(exit => {
-                      const produit = products.find(p => p.id === exit.produit_id);
-                      return (
-                        <tr key={exit.id} className="hover:bg-yellow-50 transition">
-                          <td className="px-6 py-4 whitespace-nowrap font-medium text-yellow-700">
-                            {exit.id}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900">
-                              {produit ? produit.name : 'Produit inconnu'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {exit.quantite}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <FaBuilding className="mr-1 text-gray-400" />
-                              {exit.destination || 'N/A'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <FaComment className="mr-1 text-gray-400" />
-                              {exit.commentaire || 'Aucun commentaire'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {formatDate(exit.date)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
-                              <button
-                                onClick={() => openDetailModal(exit)}
-                                className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-100 transition"
-                                title="Détails"
-                              >
-                                <FaFileAlt />
-                              </button>
-                              <button
-                                onClick={() => handleViewReceipt(exit.id)}
-                                className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-100 transition"
-                                title="Voir le bon"
-                              >
-                                <FaSearch />
-                              </button>
-                              <button
-                                onClick={() => handlePrintReceipt(exit.id)}
-                                className="text-purple-600 hover:text-purple-900 p-2 rounded-lg hover:bg-purple-100 transition"
-                                title="Imprimer"
-                              >
-                                <FaPrint />
-                              </button>
-                              <button
-                                onClick={() => handleEditExit(exit.id)}
-                                className="text-yellow-600 hover:text-yellow-900 p-2 rounded-lg hover:bg-yellow-100 transition"
-                                title="Modifier"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteExit(exit.id)}
-                                className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
-                                title="Supprimer"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+                  {loading ? (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                        Chargement...
+                      </td>
+                    </tr>
+                  ) :filteredExits.length > 0 ? (
+                    filteredExits.map(exit => (
+                      <tr key={exit.id} className="hover:bg-yellow-50 transition">
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">
+                            {exit.produits.length > 0 
+                              ? exit.produits.map(p => `${p.name}`)
+                              : 'Aucun produit'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {exit.produits.reduce((sum, p) => sum + p.pivot.quantite, 0)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            {exit.destination || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            {exit.commentaire || 'Aucun commentaire'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {formatDate(exit.date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => openDetailModal(exit)}
+                              className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-100 transition"
+                              title="Détails"
+                            >
+                              <FaFileAlt />
+                            </button>
+                            <button
+                              onClick={() => handleViewReceipt(exit.id)}
+                              className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-100 transition"
+                              title="Voir le bon"
+                            >
+                              <FaSearch />
+                            </button>
+                            <button
+                              onClick={() => handlePrintReceipt(exit.id)}
+                              className="text-purple-600 hover:text-purple-900 p-2 rounded-lg hover:bg-purple-100 transition"
+                              title="Imprimer"
+                            >
+                              <FaPrint />
+                            </button>
+                            <button
+                              onClick={() => handleEditExit(exit.id)}
+                              className="text-yellow-600 hover:text-yellow-900 p-2 rounded-lg hover:bg-yellow-100 transition"
+                              title="Modifier"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(exit)}
+                              className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
+                              title="Supprimer"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : (
                     <tr>
                       <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
@@ -812,8 +748,6 @@ const handlePrintReceipt = async (id) => {
           </div>
         </div>
       </div>
-
-      {/* Modal de détail */}
       {isDetailModalOpen && selectedExit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -828,32 +762,30 @@ const handlePrintReceipt = async (id) => {
                 <FaTimes />
               </button>
             </div>
-            
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h4 className="font-medium text-gray-700 mb-2">Informations générales</h4>
                   <div className="space-y-2">
-                    <p><span className="font-medium">ID:</span> {selectedExit.id}</p>
-                    <p><span className="font-medium">Date:</span> {formatDateTime(selectedExit.date)}</p>
                     <p><span className="font-medium">Créé le:</span> {formatDateTime(selectedExit.created_at)}</p>
                     <p><span className="font-medium">Modifié le:</span> {formatDateTime(selectedExit.updated_at)}</p>
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Détails de la sortie</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">Détails des produits</h4>
                   <div className="space-y-2">
-                    <p><span className="font-medium">Produit:</span> {
-                      (() => {
-                        const product = products.find(p => p.id === selectedExit.produit_id);
-                        return product ? product.name : 'Produit inconnu';
-                      })()
-                    }</p>
-                    <p><span className="font-medium">Quantité:</span> {selectedExit.quantite}</p>
+                    {selectedExit.produits.length > 0 ? (
+                      selectedExit.produits.map(produit => (
+                        <p key={produit.id}>
+                          <span className="font-medium">{produit.name}:</span> {produit.pivot.quantite} unités
+                        </p>
+                      ))
+                    ) : (
+                      <p>Aucun produit associé</p>
+                    )}
                   </div>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 gap-6 mb-6">
                 <div>
                   <h4 className="font-medium text-gray-700 mb-2">Destination</h4>
@@ -864,7 +796,6 @@ const handlePrintReceipt = async (id) => {
                     </div>
                   </div>
                 </div>
-                
                 <div>
                   <h4 className="font-medium text-gray-700 mb-2">Commentaire</h4>
                   <div className="p-3 bg-gray-50 rounded-lg">
@@ -875,7 +806,6 @@ const handlePrintReceipt = async (id) => {
                   </div>
                 </div>
               </div>
-
               <div className="mt-6 flex justify-between">
                 <button
                   onClick={() => handlePrintReceipt(selectedExit.id)}
@@ -894,6 +824,15 @@ const handlePrintReceipt = async (id) => {
             </div>
           </div>
         </div>
+      )}
+      {isDeleteModalOpen && entryToDelete && (
+        <ConfirmDeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={closeDeleteModal}
+          onConfirm={() => handleDeleteExit(entryToDelete.id)}
+          title="Confirmer la suppression"
+          message={`Voulez-vous vraiment supprimer la sortie #${entryToDelete.id} ? Cette action est irréversible.`}
+        />
       )}
     </div>
   );

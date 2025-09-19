@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useState, useEffect } from 'react';
 
 //admin
-import Login from "./pages/Auth/login";
+import Login from "./pages/auth/login.jsx";
 import AdminHome from "./pages/Admin/Home.jsx";
 import Creation from "./pages/Admin/UserCreationForm.jsx";
 import UserManagement from "./pages/Admin/UserList.jsx";
@@ -60,7 +60,7 @@ const AppContent = () => {
       case 'responsablestock':
         return '/stock-manager/dashboard';
       case 'employee':
-        return '/employee/Home';
+        return '/employe/Home';
       default:
         return '/login';
     }
