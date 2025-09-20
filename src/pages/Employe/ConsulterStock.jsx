@@ -20,10 +20,6 @@ export default function ConsulterStock() {
       
       const response = await API.get('/employe/voirStock');
       
-      // Debug - à retirer après test
-      console.log('Response complète:', response);
-      console.log('Response.data:', response.data);
-      
       // Si l'API retourne directement un tableau
       if (Array.isArray(response.data)) {
         setStock(response.data);
@@ -94,9 +90,11 @@ export default function ConsulterStock() {
                     <h3 className="text-lg font-semibold text-gray-800">
                       Inventaire des produits
                     </h3>
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {stock.length} produit{stock.length > 1 ? 's' : ''}
-                    </span>
+                    <div className="flex items-center space-x-4">
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {stock.length} produit{stock.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -114,15 +112,13 @@ export default function ConsulterStock() {
                         <th className="px-6 py-4 font-semibold text-sm uppercase tracking-wider">
                           Produit
                         </th>
-                        <th className="px-6 py-4 font-semibold text-sm uppercase tracking-wider text-center">
-                          Quantité
-                        </th>
+                        {/* Colonne Statut SUPPRIMÉE */}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {stock.length === 0 ? (
                         <tr>
-                          <td colSpan="4" className="px-6 py-12 text-center">
+                          <td colSpan="3" className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center text-gray-500">
                               <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -139,50 +135,21 @@ export default function ConsulterStock() {
                             className="hover:bg-gray-50 transition-colors duration-200"
                           >
                             <td className="px-6 py-4 text-gray-900 font-medium">
-                              {item.famille || 'N/A'}
+                              {item.famille || item.family || 'N/A'}
                             </td>
                             <td className="px-6 py-4 text-gray-700">
-                              {item.sous_famille || 'N/A'}
+                              {item.sous_famille || item.subfamily || item.category || 'N/A'}
                             </td>
                             <td className="px-6 py-4 text-gray-900 font-medium">
-                              {item.nom_produit || 'N/A'}
+                              {item.nom_produit || item.name || item.product_name || 'N/A'}
                             </td>
-                            <td className="px-6 py-4 text-center">
-                              <span 
-                                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                  item.quantite_stock === 0 
-                                    ? 'bg-red-100 text-red-800' 
-                                    : item.quantite_stock < 10 
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-green-100 text-green-800'
-                                }`}
-                              >
-                                {item.quantite_stock !== undefined ? item.quantite_stock : 0}
-                              </span>
-                            </td>
+                            {/* Cellule Statut SUPPRIMÉE */}
                           </tr>
                         ))
                       )}
                     </tbody>
                   </table>
                 </div>
-
-                {/* Pied de tableau avec actions */}
-                {stock.length > 0 && (
-                  <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-600">
-                        Total : {stock.length} produit{stock.length > 1 ? 's' : ''}
-                      </p>
-                      <button
-                        onClick={chargerStock}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-                      >
-                        Actualiser
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>

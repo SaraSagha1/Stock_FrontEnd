@@ -1,16 +1,43 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaClipboardList, FaBoxOpen, FaPlusCircle, FaSignOutAlt } from "react-icons/fa";
 import logo from "../../assets/logo.png";
+import API from "../../api/axios";
+import { toast } from "react-toastify";
 
 const SidebarEmploye = ({ isSidebarOpen, toggleSidebar }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     { label: "Faire une demande", icon: <FaPlusCircle />, path: "/employe/faire-demande" },
     { label: "Mes demandes", icon: <FaClipboardList />, path: "/employe/mes-demandes" },
     { label: "Consulter stock", icon: <FaBoxOpen />, path: "/employe/consulter-stock" },
   ];
+
+  // Fonction de déconnexion
+  const handleLogout = async () => {
+    try {
+      // Appel à l'API de déconnexion
+      await API.post('/logout');
+      
+      // Supprimer les données d'authentification
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      
+      // Rediriger vers la page de login
+      toast.success('Déconnexion réussie');
+      navigate('/login');
+      
+    } catch (err) {
+      console.error('Erreur déconnexion:', err);
+      
+      // Même en cas d'erreur, on nettoie le local storage et on redirige
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
+  };
 
   return (
     <div
@@ -50,13 +77,13 @@ const SidebarEmploye = ({ isSidebarOpen, toggleSidebar }) => {
 
       {/* Déconnexion */}
       <div className="absolute bottom-0 w-full">
-        <Link
-          to="/"
-          className="flex items-center gap-3 px-4 py-3 bg-red-700 text-white hover:bg-red-800 transition-colors"
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-3 bg-red-700 text-white hover:bg-red-800 transition-colors"
         >
           <FaSignOutAlt />
           <span className={`${!isSidebarOpen && "hidden"}`}>Déconnexion</span>
-        </Link>
+        </button>
       </div>
     </div>
   );

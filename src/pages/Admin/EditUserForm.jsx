@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminSidebar from '../../components/Admin/AdminSidebar';
-import { FaUserEdit, FaArrowLeft, FaSave } from 'react-icons/fa';
+import { FaUserEdit, FaArrowLeft, FaSave, FaKey } from 'react-icons/fa';
 import { ChevronRight, ChevronDown, Building2, Users, MapPin, Briefcase, Target } from "lucide-react";
 import API from "../../api/axios";
 
@@ -19,6 +19,17 @@ const EditUserForm = () => {
     division: "",
     agence: ""
   });
+
+  // États pour la modification du mot de passe
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    new_password_confirmation: ""
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeMenu, setActiveMenu] = useState('utilisateurs');
@@ -50,16 +61,7 @@ const EditUserForm = () => {
             name: user.name || user.nom || user.nomComplet || "",
             email: user.email || "",
             role: user.role || "Employé",
-            poste: user.poste || (user.employe ? user.employe.poste : "") || "", // ← Poste depuis emplo
-            direction: user.direction || "",
-            departement: user.departement || "",
-            division: user.division || "",
-            agence: user.agence || ""
-          });
-          
-          console.log("FormData initialisé:", {
-            name: user.name || user.nom || user.nomComplet || "",
-            email: user.email || "",
+            poste: user.poste || (user.employe ? user.employe.poste : "") || "",
             direction: user.direction || "",
             departement: user.departement || "",
             division: user.division || "",
@@ -70,7 +72,6 @@ const EditUserForm = () => {
         setUserLoading(false);
       } catch (error) {
         console.error("Erreur lors du chargement de l'utilisateur:", error);
-
         setUserLoading(false);
       }
     };
@@ -125,44 +126,49 @@ const EditUserForm = () => {
     }));
   };
 
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleNodeSelect = (node) => {
-  setSelectedNode(node);
-  
-  console.log("Nœud sélectionné:", node);
-  
-  // Mettre à jour les champs textuels ET l'ID d'organigramme
-  if (node.type === 'DirectionG' || node.type === 'Direction') {
-    setFormData(prev => ({
-      ...prev,
-      direction: node.nom,
-      departement: "",
-      division: "",
-      agence: "",
-      organigramme_id: node.id // ← Stocker l'ID de l'organigramme
-    }));
-  } else if (node.type === 'Département') {
-    setFormData(prev => ({
-      ...prev,
-      departement: node.nom,
-      division: "",
-      agence: "",
-      organigramme_id: node.id // ← Stocker l'ID de l'organigramme
-    }));
-  } else if (node.type === 'Division') {
-    setFormData(prev => ({
-      ...prev,
-      division: node.nom,
-      agence: "",
-      organigramme_id: node.id // ← Stocker l'ID de l'organigramme
-    }));
-  } else if (node.type === 'Agence' || node.type === 'Unité') {
-    setFormData(prev => ({
-      ...prev,
-      agence: node.nom,
-      organigramme_id: node.id // ← Stocker l'ID de l'organigramme
-    }));
-  }
-};
+    setSelectedNode(node);
+    
+    if (node.type === 'DirectionG' || node.type === 'Direction') {
+      setFormData(prev => ({
+        ...prev,
+        direction: node.nom,
+        departement: "",
+        division: "",
+        agence: "",
+        organigramme_id: node.id
+      }));
+    } else if (node.type === 'Département') {
+      setFormData(prev => ({
+        ...prev,
+        departement: node.nom,
+        division: "",
+        agence: "",
+        organigramme_id: node.id
+      }));
+    } else if (node.type === 'Division') {
+      setFormData(prev => ({
+        ...prev,
+        division: node.nom,
+        agence: "",
+        organigramme_id: node.id
+      }));
+    } else if (node.type === 'Agence' || node.type === 'Unité') {
+      setFormData(prev => ({
+        ...prev,
+        agence: node.nom,
+        organigramme_id: node.id
+      }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -176,7 +182,7 @@ const EditUserForm = () => {
         departement: formData.departement,
         division: formData.division,
         agence: formData.agence,
-        organigramme_id: formData.organigramme_id // ← Inclure l'ID organigramme
+        organigramme_id: formData.organigramme_id
       };
 
       console.log("Données à envoyer:", updateData);
@@ -186,6 +192,38 @@ const EditUserForm = () => {
     } catch (error) {
       console.error("Erreur lors de la modification:", error);
       alert("Erreur lors de la modification de l'utilisateur");
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordLoading(true);
+    setPasswordErrors({});
+    setPasswordSuccess(false);
+
+    try {
+      await API.post(`/change-password/${userId}`, passwordData);
+      
+      setPasswordSuccess(true);
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        new_password_confirmation: ""
+      });
+      
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess(false);
+      }, 2000);
+      
+    } catch (error) {
+      if (error.response?.data?.errors) {
+        setPasswordErrors(error.response.data.errors);
+      } else {
+        setPasswordErrors({ general: "Erreur lors de la modification du mot de passe" });
+      }
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -246,9 +284,9 @@ const EditUserForm = () => {
   };
 
   const TreeNode = ({ node, level = 0 }) => {
-  const isExpanded = expandedNodes.has(node.id.toString());
-  const hasChildren = node.children && node.children.length > 0;
-  const isSelected = selectedNode && selectedNode.id === node.id;
+    const isExpanded = expandedNodes.has(node.id.toString());
+    const hasChildren = node.children && node.children.length > 0;
+    const isSelected = selectedNode && selectedNode.id === node.id;
 
     return (
       <div className="select-none">
@@ -316,9 +354,18 @@ const EditUserForm = () => {
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
           <div className="max-w-7xl mx-auto">
             <div className="bg-white shadow-xl rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-red-700 flex items-center">
-                <FaUserEdit className="text-white mr-4" />
-                <h1 className="text-xl font-semibold text-white">Modification des informations utilisateur</h1>
+              <div className="px-6 py-4 border-b border-gray-200 bg-red-700 flex items-center justify-between">
+                <div className="flex items-center">
+                  <FaUserEdit className="text-white mr-4" />
+                  <h1 className="text-xl font-semibold text-white">Modification des informations utilisateur</h1>
+                </div>
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="flex items-center px-4 py-2 bg-white text-red-700 rounded-md hover:bg-gray-100 transition-colors"
+                >
+                  <FaKey className="mr-2" />
+                  Modifier mot de passe
+                </button>
               </div>
 
               <div className="flex flex-col lg:flex-row">
@@ -331,7 +378,7 @@ const EditUserForm = () => {
                         <label className="block text-sm font-medium text-gray-700">Nom Complet *</label>
                         <input
                           type="text"
-                          name="Nom Complet"
+                          name="name"
                           value={formData.name}
                           onChange={handleChange}
                           required
@@ -368,18 +415,18 @@ const EditUserForm = () => {
                         </select>
                       </div>
 
-                      {/* Poste - Afficher uniquement si le rôle est "Employé" */}
+                      {/* Poste */}
                       {formData.role === "employe" && (
                         <div>
                           <label htmlFor="poste" className="block text-sm font-medium text-gray-700">
-                          Poste <span className="text-red-500">*</span>
-                        </label>
+                            Poste <span className="text-red-500">*</span>
+                          </label>
                           <input
                             type="text"
                             name="poste"
                             value={formData.poste}
                             onChange={handleChange}
-                            required={formData.role === "Employé"}
+                            required={formData.role === "employe"}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-700 focus:border-red-700"
                           />
                         </div>
@@ -484,6 +531,88 @@ const EditUserForm = () => {
           </div>
         </main>
       </div>
+
+      {/* Modal de modification du mot de passe */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4">Modifier le mot de passe</h2>
+            
+            {passwordSuccess && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                Mot de passe modifié avec succès !
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Mot de passe actuel</label>
+                  <input
+                    type="password"
+                    name="current_password"
+                    value={passwordData.current_password}
+                    onChange={handlePasswordChange}
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-700 focus:border-red-700"
+                  />
+                  {passwordErrors.current_password && (
+                    <p className="text-red-500 text-sm">{passwordErrors.current_password[0]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
+                  <input
+                    type="password"
+                    name="new_password"
+                    value={passwordData.new_password}
+                    onChange={handlePasswordChange}
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-700 focus:border-red-700"
+                  />
+                  {passwordErrors.new_password && (
+                    <p className="text-red-500 text-sm">{passwordErrors.new_password[0]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Confirmer le nouveau mot de passe</label>
+                  <input
+                    type="password"
+                    name="new_password_confirmation"
+                    value={passwordData.new_password_confirmation}
+                    onChange={handlePasswordChange}
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-700 focus:border-red-700"
+                  />
+                </div>
+
+                {passwordErrors.general && (
+                  <p className="text-red-500 text-sm">{passwordErrors.general}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                >
+                  {passwordLoading ? 'Modification...' : 'Modifier'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

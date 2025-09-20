@@ -6,8 +6,8 @@ import API from "../../api/axios";
 export default function FaireDemande() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [produits, setProduits] = useState([]);
-  const [selectedProduit, setSelectedProduit] = useState(null);
-  const [quantite, setQuantite] = useState("");
+  const [selectedProduits, setSelectedProduits] = useState([]);
+  const [quantites, setQuantites] = useState({});
   const [raison, setRaison] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,15 +20,15 @@ export default function FaireDemande() {
 
   const chargerProduits = async () => {
     try {
-      const response = await API.get('/employe/products');
+      const response = await API.get('/employe/voirStock');
       
       // Adapter selon la structure de votre réponse API
       const produitsData = Array.isArray(response.data) ? response.data : response.data.data || [];
       
       setProduits(produitsData.map(prod => ({ 
-  value: prod.id,  // <-- c'est l'id qui sera envoyé au backend
-  label: `${prod.name} (Stock: ${prod.quantite_stock || 0})`
-})));
+        value: prod.id,
+        label: `${prod.nom_produit} (${prod.famille} - ${prod.sous_famille})`
+      })));
 
     } catch (err) {
       console.error("Erreur chargement produits :", err);
@@ -36,18 +36,40 @@ export default function FaireDemande() {
     }
   };
 
+  const handleAddProduit = (selectedOption) => {
+    if (selectedOption && !selectedProduits.find(p => p.value === selectedOption.value)) {
+      setSelectedProduits([...selectedProduits, selectedOption]);
+      setQuantites({...quantites, [selectedOption.value]: 1});
+    }
+  };
+
+  const handleRemoveProduit = (produitId) => {
+    setSelectedProduits(selectedProduits.filter(p => p.value !== produitId));
+    
+    const newQuantites = {...quantites};
+    delete newQuantites[produitId];
+    setQuantites(newQuantites);
+  };
+
+  const handleQuantiteChange = (produitId, newQuantite) => {
+    setQuantites({...quantites, [produitId]: parseInt(newQuantite) || 1});
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validation des champs
-    if (!selectedProduit) {
-      setError("Veuillez sélectionner un produit");
+    if (selectedProduits.length === 0) {
+      setError("Veuillez sélectionner au moins un produit");
       return;
     }
     
-    if (!quantite || quantite <= 0) {
-      setError("Veuillez saisir une quantité valide");
-      return;
+    for (const produit of selectedProduits) {
+      const quantite = quantites[produit.value];
+      if (!quantite || quantite <= 0) {
+        setError(`Veuillez saisir une quantité valide pour ${produit.label}`);
+        return;
+      }
     }
     
     if (!raison.trim()) {
@@ -60,13 +82,16 @@ export default function FaireDemande() {
       setError('');
       setSuccess('');
 
-      // Payload selon votre format API
-      const payload = {
-      produit_id: selectedProduit.value,  // <-- c'est l'ID maintenant
-      quantite: quantite.toString(),
-      raison: raison.trim()
-    };
+      // Préparer le payload selon le nouveau format
+      const produitsPayload = selectedProduits.map(produit => ({
+        product_id: produit.value,
+        quantite: quantites[produit.value]
+      }));
 
+      const payload = {
+        raison: raison.trim(),
+        produits: produitsPayload
+      };
 
       console.log('Envoi payload:', payload); // Debug
 
@@ -75,12 +100,12 @@ export default function FaireDemande() {
       console.log('Réponse API:', response.data); // Debug
 
       // Gestion de la réponse
-      if (response.data && (response.data.id || response.status === 200 || response.status === 201)) {
+      if (response.data && (response.data.demande || response.status === 200 || response.status === 201)) {
         setSuccess("Demande envoyée avec succès ! (État: en attente)");
         
         // Réinitialiser le formulaire
-        setSelectedProduit(null);
-        setQuantite("");
+        setSelectedProduits([]);
+        setQuantites({});
         setRaison("");
         
         // Effacer le message de succès après 4 secondes
@@ -127,7 +152,7 @@ export default function FaireDemande() {
             <p className="text-red-100 mt-1">Demander des produits du stock</p>
           </div>
 
-          <div className="max-w-2xl mx-auto p-6">
+          <div className="max-w-4xl mx-auto p-6">
             {/* Messages d'erreur */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700 rounded-md">
@@ -152,7 +177,7 @@ export default function FaireDemande() {
             <div className="bg-white rounded-xl shadow-xl overflow-hidden">
               <div className="bg-gradient-to-r from-red-50 to-red-100 px-6 py-4 border-b border-red-200">
                 <h3 className="text-xl font-bold text-red-800">
-                  📋 Nouvelle demande de produit
+                  📋 Nouvelle demande de produits
                 </h3>
                 <p className="text-red-600 text-sm mt-1">
                   Remplissez tous les champs pour soumettre votre demande
@@ -160,15 +185,15 @@ export default function FaireDemande() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-8 space-y-8">
-                {/* Sélection du produit */}
+                {/* Sélection des produits */}
                 <div>
                   <label className="block text-sm font-bold text-gray-800 mb-3">
-                    🔍 Produit demandé <span className="text-red-500">*</span>
+                    🔍 Produits demandés <span className="text-red-500">*</span>
                   </label>
                   <Select
                     options={produits}
-                    value={selectedProduit}
-                    onChange={setSelectedProduit}
+                    value={null}
+                    onChange={handleAddProduit}
                     placeholder="🔎 Tapez pour rechercher un produit..."
                     isSearchable
                     className="text-black"
@@ -189,28 +214,37 @@ export default function FaireDemande() {
                       })
                     }}
                   />
-                  <p className="text-xs text-gray-500 mt-2 flex items-center">
-                    💡 Le stock disponible est affiché entre parenthèses
-                  </p>
-                </div>
-
-                {/* Quantité */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">
-                    📦 Quantité demandée <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="1000"
-                    className="w-full p-4 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-red-100 focus:border-red-500 text-black text-lg transition-all duration-200"
-                    placeholder="Ex: 5"
-                    value={quantite}
-                    onChange={(e) => setQuantite(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Saisissez un nombre entre 1 et 1000
-                  </p>
+                  
+                  {/* Liste des produits sélectionnés */}
+                  {selectedProduits.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      {selectedProduits.map(produit => (
+                        <div key={produit.value} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-800">{produit.label}</span>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="number"
+                              min="1"
+                              max="1000"
+                              className="w-20 p-2 border border-gray-300 rounded text-black"
+                              placeholder="Qté"
+                              value={quantites[produit.value] || 1}
+                              onChange={(e) => handleQuantiteChange(produit.value, e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProduit(produit.value)}
+                              className="text-red-600 hover:text-red-800 font-bold text-lg"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Raison */}
@@ -221,7 +255,7 @@ export default function FaireDemande() {
                   <textarea
                     rows="4"
                     className="w-full p-4 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-red-100 focus:border-red-500 text-black resize-none transition-all duration-200"
-                    placeholder="Expliquez pourquoi vous avez besoin de ce produit..."
+                    placeholder="Expliquez pourquoi vous avez besoin de ces produits..."
                     value={raison}
                     onChange={(e) => setRaison(e.target.value)}
                     maxLength="300"
@@ -242,8 +276,8 @@ export default function FaireDemande() {
                     type="button"
                     className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium"
                     onClick={() => {
-                      setSelectedProduit(null);
-                      setQuantite("");
+                      setSelectedProduits([]);
+                      setQuantites({});
                       setRaison("");
                       setError('');
                       setSuccess('');
@@ -254,9 +288,9 @@ export default function FaireDemande() {
                   
                   <button
                     type="submit"
-                    disabled={loading || !selectedProduit || !quantite || !raison.trim()}
+                    disabled={loading || selectedProduits.length === 0 || !raison.trim()}
                     className={`px-8 py-3 rounded-lg font-bold transition-all duration-200 ${
-                      loading || !selectedProduit || !quantite || !raison.trim()
+                      loading || selectedProduits.length === 0 || !raison.trim()
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
                     }`}

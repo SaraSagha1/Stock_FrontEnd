@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SidebarEmploye from "../../components/Employe/EmployeeSidebar";
-import API from "../../api/axios"; // ton instance axios
+import API from "../../api/axios";
 
 export default function MesDemandes() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -16,7 +16,7 @@ export default function MesDemandes() {
   const fetchDemandes = async () => {
     try {
       setLoading(true);
-      const response = await API.get("/employe/historiquesdemandes"); // route backend pour consulter les demandes
+      const response = await API.get("/employe/historiquesdemandes");
       console.log("Demandes reçues :", response.data);
 
       setDemandes(Array.isArray(response.data) ? response.data : []);
@@ -60,10 +60,11 @@ export default function MesDemandes() {
                 <table className="min-w-full bg-white shadow-lg rounded-xl overflow-hidden">
                   <thead>
                     <tr className="bg-red-700 text-white uppercase text-sm tracking-wider">
-                      <th className="p-3 text-left">Produit</th>
-                      <th className="p-3 text-center">Quantité</th>
+                      <th className="p-3 text-left">Produits</th>
+                      <th className="p-3 text-center">Quantités</th>
                       <th className="p-3 text-left">Raison</th>
                       <th className="p-3 text-center">État</th>
+                      <th className="p-3 text-center">Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -72,25 +73,47 @@ export default function MesDemandes() {
                         key={demande.id}
                         className="border-b transition-colors duration-200 hover:bg-red-50"
                       >
+                        {/* Colonne Produits */}
                         <td className="p-3 text-gray-800 font-medium">
-                          {demande.produit ? demande.produit.name : "N/A"}
+                          {demande.noms_produits_string || 
+                           demande.noms_produits?.join(', ') || 
+                           demande.produits_string || 
+                           'N/A'}
                         </td>
-                        <td className="p-3 text-center text-gray-700">{demande.quantite}</td>
+                        
+                        {/* Colonne Quantités */}
+                        <td className="p-3 text-center text-gray-700">
+                          {demande.quantites_string || 
+                           demande.quantites?.join(', ') || 
+                           demande.quantite || 
+                           '0'}
+                        </td>
+                        
                         <td className="p-3 text-gray-700">{demande.raison}</td>
+                        
+                        {/* Colonne État */}
                         <td className="p-3 text-center">
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              demande.etat === "En attente"
+                              demande.etat === "en_attente" || demande.etat === "En attente"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : demande.etat === "Validée"
+                                : demande.etat === "validée" || demande.etat === "Validée"
                                 ? "bg-green-100 text-green-800"
-                                : demande.etat === "Refusée"
+                                : demande.etat === "refusée" || demande.etat === "Refusée"
                                 ? "bg-red-100 text-red-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {demande.etat}
+                            {demande.etat === "en_attente" ? "En attente" : 
+                             demande.etat === "validée" ? "Validée" :
+                             demande.etat === "refusée" ? "Refusée" : 
+                             demande.etat}
                           </span>
+                        </td>
+                        
+                        {/* Colonne Date */}
+                        <td className="p-3 text-center text-gray-600 text-sm">
+                          {new Date(demande.created_at).toLocaleDateString()}
                         </td>
                       </tr>
                     ))}

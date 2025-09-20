@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import { 
+  FaSignOutAlt,
   FaUserPlus, 
   FaUsersCog, 
-  FaProjectDiagram, 
-  FaSignOutAlt,
+  FaProjectDiagram,
   FaChevronDown,
   FaChevronUp,
   FaBars,
@@ -13,6 +12,8 @@ import {
   FaTimes
 } from 'react-icons/fa';
 import logo from '../../assets/logo.png';
+import API from '../../api/axios'; // Import de l'API
+import { toast } from 'react-toastify'; // Import de toast pour les notifications
 
 const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar }) => {
   const navigate = useNavigate();
@@ -21,6 +22,30 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
   const toggleOrganigramme = () => {
     setShowOrganigramme(!showOrganigramme);
     setActiveMenu(activeMenu === 'organigramme' ? null : 'organigramme');
+  };
+
+  // Fonction de déconnexion corrigée
+  const handleLogout = async () => {
+    try {
+      // Appel à l'API de déconnexion
+      await API.post('/logout');
+      
+      // Supprimer les données d'authentification
+      localStorage.removeItem('token'); // Supprimer le token
+      localStorage.removeItem('user'); // Supprimer les infos utilisateur
+      
+      // Rediriger vers la page de login
+      toast.success('Déconnexion réussie');
+      navigate('/login');
+      
+    } catch (err) {
+      console.error('Erreur déconnexion:', err);
+      
+      // Même en cas d'erreur, on nettoie le local storage et on redirige
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
   };
 
   const menuItems = [
@@ -33,7 +58,6 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
         navigate('/admin/Home');
       }
     },
-
     {
       id: 'enregistrement',
       icon: <FaUserPlus />,
@@ -47,18 +71,16 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
       id: 'organigramme',
       icon: <FaProjectDiagram />,
       label: 'Organigramme',
-
       action: () => {
         setActiveMenu('L\'organigramme');
         navigate('/admin/Organigramme');
       }
-
     },
     {
       id: 'utilisateurs',
       icon: <FaUsersCog />,
       label: 'Gestion Utilisateurs',
-         action: () => {
+      action: () => {
         setActiveMenu('utilisateurs');
         navigate('/admin/users');
       }
@@ -66,13 +88,13 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
   ];
 
   return (
-      <div 
+    <div 
       className={`bg-gray-800 text-white h-full fixed transition-all duration-300 ease-in-out z-20
         ${isSidebarOpen ? 'w-64' : 'w-30'}`}
     >
       <div className="h-full flex flex-col">
         {/* Logo et bouton toggle */}
-         <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
           {isSidebarOpen ? (
             <div className="flex items-center space-x-2">
               <img src={logo} alt="Logo" className="w-12 h-12 object-contain" />
@@ -111,7 +133,7 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
               {/* Sous-menu Organigramme */}
               {item.id === 'organigramme' && showOrganigramme && isSidebarOpen && (
                 <div className="ml-8 mt-1 mb-2 space-y-1">
-                  {item.subItems.map((subItem, index) => (
+                  {item.subItems && item.subItems.map((subItem, index) => (
                     <a
                       key={index}
                       href={subItem.path}
@@ -127,8 +149,13 @@ const AdminSidebar = ({ activeMenu, setActiveMenu, isSidebarOpen, toggleSidebar 
         </nav>
 
         {/* Déconnexion */}
-        <div className="mb-4 px-4">
-          <button className="flex items-center justify-center space-x-2 p-3 w-full rounded bg-red-600 hover:bg-red-700 transition text-white">
+        <div className="mb-4 px-2">
+          <button 
+            onClick={handleLogout}
+            className={`flex items-center ${
+              isSidebarOpen ? 'justify-start space-x-3 px-4' : 'justify-center'
+            } p-3 w-full rounded-lg bg-red-600 hover:bg-red-700 transition text-white`}
+          >
             <FaSignOutAlt />
             {isSidebarOpen && <span>Déconnexion</span>}
           </button>

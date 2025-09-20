@@ -59,7 +59,7 @@ const AppContent = () => {
         return '/admin/Home';
       case 'responsablestock':
         return '/stock-manager/dashboard';
-      case 'employee':
+      case 'employe':
         return '/employe/Home';
       default:
         return '/login';
