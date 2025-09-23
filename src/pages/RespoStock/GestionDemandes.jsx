@@ -152,7 +152,6 @@ const EmployeeRequests = () => {
     return { direction, department, division };
   };
 
-
   // Fonction pour formater l'affichage des produits
   const formatProduits = (request) => {
     // Essayer différents formats selon la structure de la réponse
@@ -171,7 +170,6 @@ const EmployeeRequests = () => {
     }
     return 'Aucun produit';
   };
-
 
   // Fonction pour obtenir la quantité totale
   const getQuantiteTotale = (request) => {
@@ -221,6 +219,8 @@ const EmployeeRequests = () => {
               ) : requests.length > 0 ? (
                 requests.map(request => {
                   const { direction, department, division } = getHierarchyFields(request.user?.organigramme?.hierarchy);
+                  const produitsString = formatProduits(request);
+                  const produits = produitsString === 'Aucun produit' ? [] : produitsString.split(', ');
                   return (
                     <div key={request.id} className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition">
                       <div className="bg-purple-50 p-4 border-b">
@@ -247,18 +247,27 @@ const EmployeeRequests = () => {
                         </div>
 
                         <div className="mb-4">
-                          <div className="flex items-center font-medium">
+                          <div className="flex items-center font-medium text-sm mb-2">
                             <FaBox className="mr-2 text-purple-500" />
-                            <span>{formatProduits(request)}</span>
+                            <span>Produits demandés</span>
                           </div>
-                          <div className="text-xs text-gray-500 pl-6">
-                            {formatProduits(request)}
+                          {produits.length > 0 ? (
+                            <ul className="pl-6 space-y-1">
+                              {produits.map((produit, index) => (
+                                <li key={index} className="text-sm text-gray-700">
+                                  <span className="font-semibold">{produit}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-sm text-gray-500 pl-6">Aucun produit</div>
+                          )}
+                          <div className="flex items-center mt-2 pl-6">
+                            <FaHashtag className="mr-2 text-purple-500" />
+                            <span className="text-sm font-medium text-gray-700">
+                              Quantité totale: {getQuantiteTotale(request)}
+                            </span>
                           </div>
-                        </div>
-
-                        <div className="flex items-center mb-4">
-                          <FaHashtag className="mr-2 text-purple-500" />
-                          <span className="font-medium">Quantité totale: {getQuantiteTotale(request)}</span>
                         </div>
 
                         <div className="mb-4">
