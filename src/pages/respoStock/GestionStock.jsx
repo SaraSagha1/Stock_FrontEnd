@@ -581,7 +581,13 @@ const StockManagement = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredStock.length > 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                        Chargement...
+                      </td>
+                    </tr>
+                  ) : filteredStock.length > 0 ? (
                     filteredStock.map(item => {
                       const stockActuel = calculerStockActuel(item);
                       return (
