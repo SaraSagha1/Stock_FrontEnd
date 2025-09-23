@@ -31,7 +31,7 @@ const handleSubmit = async (e) => {
     if (user.role === "admin") {
       navigate("/admin");
     } else if (user.role === "responsablestock") {
-      navigate("/stock-manager/dashboard");
+      navigate("/stock-manager/stock/status");
     } else if (user.role === "employe") {
       navigate("/employe/Home");
     } else {
