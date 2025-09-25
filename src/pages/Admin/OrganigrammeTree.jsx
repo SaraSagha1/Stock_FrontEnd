@@ -53,7 +53,7 @@ useEffect(() => {
       setError(null);
       
       // Récupérer le token du localStorage
-      const token = localStorage.getItem('token'); // ou où vous stockez votre token
+      const token = localStorage.getItem('auth_token');
       
       const response = await fetch("http://127.0.0.1:8000/api/organigrammes/all-for-tree", {
         headers: {

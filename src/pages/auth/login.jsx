@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from "react-router-dom"; // 🚀 pour rediriger
+import { useNavigate } from "react-router-dom"; 
 import API from "../../api/axios";
 import logo from '../../assets/logo.png';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
-  const navigate = useNavigate(); // 🚀 hook navigation
+  const navigate = useNavigate(); 
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,7 +39,7 @@ const handleSubmit = async (e) => {
     }
 
   } catch (error) {
-    setMessage("❌ Erreur : " + (error.response?.data?.message || error.message));
+    setMessage("❌ Erreur : Mot de pass ou Email incorrecte" );
     console.error("Erreur détaillée:", error.response?.data);
   }
 };

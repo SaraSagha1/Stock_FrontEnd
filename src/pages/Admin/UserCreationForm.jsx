@@ -82,6 +82,7 @@ const UserCreationForm = () => {
     password: formData.password,
     role: formData.role === "Employé" ? "employe" : 
           formData.role === "Responsable Stock" ? "responsablestock" : 
+          formData.role === "Admin" ? "admin" : 
           formData.role.toLowerCase(),
     // ✅ AJOUTER le poste UNIQUEMENT pour le rôle "Employé"
     ...(formData.role === "Employé" && { poste: formData.poste.trim() }),
@@ -260,6 +261,7 @@ const UserCreationForm = () => {
                       >
                         <option value="Employé">Employé</option>
                         <option value="Responsable Stock">Responsable Stock</option>
+                        <option value="Admin">Admin</option>
                       </select>
                     </div>
 

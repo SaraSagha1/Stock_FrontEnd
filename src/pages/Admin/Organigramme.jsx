@@ -47,32 +47,34 @@ const OrganigrammePage = ({ onNodeSelect, selectedNode: externalSelectedNode }) 
   }, []);
 
   const loadTreeData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('token');
-      const response = await fetch("http://127.0.0.1:8000/api/organigrammes/all-for-tree", {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      });
-      
-      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
-      
-      const data = await response.json();
-      if (data.success) setTreeData(data.data);
-      
-    } catch (err) {
-      console.error("Erreur lors du chargement:", err);
-      setError(err.message);
-      showAlert("Erreur", "Impossible de charger l'organigramme", "error");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    setError(null);
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      throw new Error("Aucun token d'authentification trouvé. Veuillez vous connecter.");
     }
-  };
+
+    const response = await fetch("http://127.0.0.1:8000/api/organigrammes/all-for-tree", {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+    });
+
+    if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+    const data = await response.json();
+    if (data.success) setTreeData(data.data);
+  } catch (err) {
+    console.error("Erreur lors du chargement:", err);
+    setError(err.message);
+    showAlert("Erreur", err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // RECHERCHER des éléments - VERSION CORRIGÉE
   const handleSearch = async () => {
