@@ -12,7 +12,7 @@ const EditUserForm = () => {
     name: "",
     prenom: "",
     email: "",
-    role: "Employé",
+    role: "employe", // Valeur par défaut en minuscules
     poste: "",
     direction: "",
     departement: "",
@@ -43,6 +43,54 @@ const EditUserForm = () => {
   const [organigrammeLoading, setOrganigrammeLoading] = useState(true);
   const [organigrammeError, setOrganigrammeError] = useState(null);
 
+  // Fonction pour récupérer le token d'authentification
+  const getAuthToken = () => {
+    // Vérifier dans localStorage
+    const localToken = localStorage.getItem('auth_token');
+    if (localToken) return localToken;
+    
+    // Vérifier dans sessionStorage
+    const sessionToken = sessionStorage.getItem('auth_token');
+    if (sessionToken) return sessionToken;
+    
+    // Vérifier dans les cookies
+    const cookieToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
+    
+    // Vérifier l'ancien nom 'token' dans localStorage (pour compatibilité)
+    const oldToken = localStorage.getItem('token');
+    if (oldToken) return oldToken;
+    
+    return null;
+  };
+
+  // Fonction pour normaliser le rôle (assurer la cohérence entre l'affichage et la base de données)
+  const normalizeRole = (role) => {
+    if (!role) return "employe";
+    
+    // Convertir en minuscules pour la cohérence
+    const normalized = role.toLowerCase();
+    
+    // Mapping des valeurs possibles
+    if (normalized.includes('admin') || normalized === 'admin') return "Admin";
+    if (normalized.includes('responsable') || normalized.includes('stock') || normalized === 'responsablestock') return "ResponsableStock";
+    if (normalized.includes('employe') || normalized === 'employé' || normalized === 'employe') return "employe";
+    
+    return normalized;
+  };
+
+  // Fonction pour obtenir la valeur d'affichage du rôle
+  const getDisplayRole = (role) => {
+    const normalized = normalizeRole(role);
+    
+    // Retourner la valeur pour l'affichage dans le select
+    if (normalized === "Admin") return "Admin";
+    if (normalized === "ResponsableStock") return "ResponsableStock";
+    return "employe"; // Valeur par défaut
+  };
+
   // Charger les données de l'utilisateur
   useEffect(() => {
     const fetchUserData = async () => {
@@ -54,18 +102,23 @@ const EditUserForm = () => {
         const user = response.data;
         
         console.log("Données utilisateur reçues:", user);
+        console.log("Rôle reçu de l'API:", user.role);
         
         // Vérifier la structure des données
         if (user) {
+          const normalizedRole = normalizeRole(user.role);
+          console.log("Rôle normalisé:", normalizedRole);
+          
           setFormData({
             name: user.name || user.nom || user.nomComplet || "",
             email: user.email || "",
-            role: user.role || "Employé",
+            role: normalizedRole, // Utiliser le rôle normalisé
             poste: user.poste || (user.employe ? user.employe.poste : "") || "",
             direction: user.direction || "",
             departement: user.departement || "",
             division: user.division || "",
-            agence: user.agence || ""
+            agence: user.agence || "",
+            organigramme_id: user.organigramme_id || null
           });
         }
         
@@ -86,7 +139,14 @@ const EditUserForm = () => {
         setOrganigrammeLoading(true);
         setOrganigrammeError(null);
         
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
+        
+        if (!token) {
+          throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
+        }
+        
+        console.log("🔐 Token utilisé:", token.substring(0, 20) + "...");
+        
         const response = await fetch("http://127.0.0.1:8000/api/organigrammes/all-for-tree", {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -95,19 +155,30 @@ const EditUserForm = () => {
           }
         });
         
+        console.log("📊 Status de la réponse:", response.status);
+        
         if (!response.ok) {
+          if (response.status === 401) {
+            // Token invalide ou expiré
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('auth_token');
+            throw new Error('Session expirée. Veuillez vous reconnecter.');
+          }
           throw new Error(`Erreur HTTP: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log("Données organigramme reçues:", data);
+        console.log("🌳 Données organigramme reçues:", data);
         
         if (data.success) {
           setTreeData(data.data);
+        } else {
+          throw new Error('Format de réponse invalide');
         }
         
       } catch (err) {
-        console.error("Erreur lors du chargement:", err);
+        console.error("❌ Erreur lors du chargement de l'organigramme:", err);
         setOrganigrammeError(err.message);
       } finally {
         setOrganigrammeLoading(false);
@@ -120,6 +191,8 @@ const EditUserForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Changement du champ ${name}:`, value);
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -173,10 +246,12 @@ const EditUserForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log("Données du formulaire avant envoi:", formData);
+      
       const updateData = {
         name: formData.name,
         email: formData.email,
-        role: formData.role,
+        role: formData.role, // Utiliser directement la valeur du formulaire
         poste: formData.poste,
         direction: formData.direction,
         departement: formData.departement,
@@ -185,12 +260,17 @@ const EditUserForm = () => {
         organigramme_id: formData.organigramme_id
       };
 
-      console.log("Données à envoyer:", updateData);
+      console.log("📤 Données à envoyer à l'API:", updateData);
       
-      await API.put(`/UPusers/${userId}`, updateData);
+      const response = await API.put(`/UPusers/${userId}`, updateData);
+      console.log("✅ Réponse de l'API:", response.data);
+      
       navigate('/admin/users');
     } catch (error) {
-      console.error("Erreur lors de la modification:", error);
+      console.error("❌ Erreur lors de la modification:", error);
+      if (error.response) {
+        console.error("Détails de l'erreur:", error.response.data);
+      }
       alert("Erreur lors de la modification de l'utilisateur");
     }
   };
@@ -399,12 +479,12 @@ const EditUserForm = () => {
                         />
                       </div>
 
-                      {/* Rôle */}
+                      {/* Rôle - CORRIGÉ */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Rôle *</label>
                         <select
                           name="role"
-                          value={formData.role}
+                          value={formData.role} // Utiliser directement la valeur du state
                           onChange={handleChange}
                           required
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-700 focus:border-red-700"
@@ -413,6 +493,9 @@ const EditUserForm = () => {
                           <option value="ResponsableStock">Responsable Stock</option>
                           <option value="Admin">Administrateur</option>
                         </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Rôle actuel: {formData.role}
+                        </p>
                       </div>
 
                       {/* Poste */}
@@ -513,7 +596,16 @@ const EditUserForm = () => {
                       </div>
                     ) : organigrammeError ? (
                       <div className="p-4 bg-red-50 border border-red-200 rounded">
-                        <p className="text-red-800">Erreur: {organigrammeError}</p>
+                        <p className="text-red-800">
+                          Erreur lors du chargement de l'organigramme: {organigrammeError}
+                          <br />
+                          <button 
+                            onClick={() => window.location.reload()} 
+                            className="mt-2 text-blue-600 hover:text-blue-800 underline"
+                          >
+                            Recharger la page
+                          </button>
+                        </p>
                       </div>
                     ) : (
                       <div className="p-4 max-h-96 overflow-y-auto">
